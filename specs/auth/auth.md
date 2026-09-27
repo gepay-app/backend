@@ -63,7 +63,7 @@ menghapus role** yang sudah ada. Jadi tidak ada chicken-and-egg.
   `IdentityApi`). `record` polos, tanpa validation annotation, tanpa referensi
   JPA/entity. Enum `Role`/`UserStatus` di `api/dtos` terpisah dari
   `internal/entity.Role`/`User.Status`; dipetakan eksplisit di service.
-  `api` tidak pernah import tipe `internal` (`agents.md` §2.1).
+  `api` tidak pernah import tipe `internal` (`../../agents.md` §2.1).
 - **`internal/delivery/http/req`** = request DTO HTTP — di sinilah validation
   annotation hidup. Controller memetakan `req` → command `api/dtos`.
 
@@ -108,7 +108,7 @@ CREATE TABLE identity.user_roles
 Catatan:
 - `name` **nullable** karena Firebase tidak menjamin `displayName`.
 - `user_roles` punya `id` UUID v7 + unique `(user_id, role)` (sesuai kebijakan
-  id aplikasi `agents.md` §3); grant bersifat idempotent di level DB.
+  id aplikasi `../../agents.md` §3); grant bersifat idempotent di level DB.
 - Enum disimpan sebagai `varchar` (bukan tipe enum DB) agar nambah role tidak
   perlu migrasi.
 
