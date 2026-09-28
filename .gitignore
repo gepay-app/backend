@@ -8,6 +8,9 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
+# example
+**/modulex/**
+
 ### STS ###
 .apt_generated
 .classpath
