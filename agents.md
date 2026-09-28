@@ -15,7 +15,7 @@
 | Spring Boot | 4.1.1 (modular starters, e.g. `spring-boot-starter-webmvc`) |
 | Spring Modulith | 2.1.1 |
 | Build | Maven wrapper |
-| Base package | `com.gepe.starter` |
+| Base package | `gepay` |
 | Persistence | PostgreSQL + JPA + Flyway |
 | Cache / secondary store | Redis |
 | Scheduler | Quartz (starter present; no job example yet) |
@@ -123,7 +123,7 @@ Application class — replace `@SpringBootApplication` with `@Modulith` so the
 being listed in their `allowedDependencies`):
 
 ```java
-package com.gepe.starter;
+package com.gepe.gepay;
 
 import org.springframework.modulith.Modulith;
 
@@ -137,29 +137,29 @@ Feature module — CLOSED by default; declare which other modules it may use
 *and through which named interface*:
 
 ```java
-// src/main/java/com/gepe/starter/user/package-info.java
+// src/main/java/com/gepe/gepay/user/package-info.java
 @org.springframework.modulith.ApplicationModule(
         id = "user",
         allowedDependencies = {} // only shared modules (platform) are allowed
 )
-package com.gepe.starter.user;
+package com.gepe.gepay.user;
 ```
 
 ```java
-// src/main/java/com/gepe/starter/order/package-info.java
+// src/main/java/com/gepe/gepay/order/package-info.java
 @org.springframework.modulith.ApplicationModule(
         id = "order",
         allowedDependencies = "user::API"
 )
-package com.gepe.starter.order;
+package com.gepe.gepay.order;
 ```
 
 Expose the contract — annotate the `api` package:
 
 ```java
-// src/main/java/com/gepe/starter/user/api/package-info.java
+// src/main/java/com/gepe/gepay/user/api/package-info.java
 @org.springframework.modulith.NamedInterface("API")
-package com.gepe.starter.user.api;
+package com.gepe.gepay.user.api;
 ```
 
 Meaning of the pieces:
@@ -180,9 +180,9 @@ Meaning of the pieces:
 as implemented in the repository:
 
 ```java
-// src/main/java/com/gepe/starter/platform/package-info.java
+// src/main/java/com/gepe/gepay/platform/package-info.java
 @ApplicationModule(type = ApplicationModule.Type.OPEN)
-package com.gepe.starter.platform;
+package com.gepe.gepay.platform;
 ```
 
 Why `OPEN` alone is enough here:
@@ -507,7 +507,7 @@ Rules for every log statement:
 - Never log secrets, tokens, passwords, full request bodies, or credit
   card-like data. Log identifiers and counts, not payloads.
 - Logger names come from the class package — the module attribution is free
-  (e.g. `com.gepe.starter.user.internal.service.UserServiceImpl`).
+  (e.g. `gepay`).
 
 Correlation context (MDC) — implemented in `platform`:
 
@@ -549,7 +549,7 @@ Later enablement (out of scope for the starter, do not implement now):
 ## 8. Testing & enforced boundaries
 
 Module boundaries are enforced by **`ModularityTests`** (already in the
-repository at `src/test/java/com/gepe/starter/ModularityTests.java`) — keep it
+repository at `gepay`) — keep it
 green:
 
 ```java

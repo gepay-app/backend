@@ -112,7 +112,7 @@ server:
 
 #logging:
 #  level:
-#    com.gepe.starter.platform.security: DEBUG
+#    com.gepe.gepay.platform.security: DEBUG
 
 management:
   endpoints:
@@ -133,7 +133,7 @@ management:
             # Redis must take the instance out of load balancer rotation.
             - redis
   tracing:
-    # Tracing is intentionally OFF in the starter (see agents.md §7 "Later
+    # Tracing is intentionally OFF in the gepay (see agents.md §7 "Later
     # enablement"). Set to true once a Micrometer tracing bridge / OTLP
     # exporter is added; this also avoids proxying module beans meanwhile.
     enabled: false

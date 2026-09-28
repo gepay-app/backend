@@ -130,7 +130,10 @@ CREATE TABLE payment.wallets
     -- supaya tidak pernah out-of-sync. Withdraw HARUS validasi ke kolom ini.
     available_balance BIGINT GENERATED ALWAYS AS (balance - pending_balance) STORED,
 
-    version           INT         NOT NULL DEFAULT 0, -- optimistic locking
+    -- Optimistic locking (jaring pengaman kedua setelah SELECT ... FOR UPDATE).
+    -- BIGINT, bukan INT: baris panas (PG_CLEARING, PLATFORM_FEE) diupdate tiap donasi, INT bisa
+    -- penuh dalam hitungan tahun di traffic tinggi, dan begitu penuh SEMUA transaksi ke wallet itu gagal.
+    version           BIGINT      NOT NULL DEFAULT 0,
     created_at        TIMESTAMPTZ NOT NULL,
     updated_at        TIMESTAMPTZ NOT NULL,
     UNIQUE (owner_type, owner_id)

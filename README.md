@@ -11,7 +11,7 @@ fondasi platform (error-handling terpusat, i18n, logging terstruktur) dan
 
 ## Isi starter
 
-- **Contoh modul bisnis `user`** (`com.gepe.starter.user`) — kecil tapi utuh:
+- **Contoh modul bisnis `user`** (`gepay`) — kecil tapi utuh:
   `api`/`internal` split, facade `UserApi`, entity + repository JPA, service
   `@Transactional`, controller `/api/v1/users`, read path di-cache Redis
   (`@Cacheable` + `@CacheEvict`), event domain + listener AFTER_COMMIT, error
