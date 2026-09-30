@@ -252,13 +252,10 @@ platform/
 - JPA repositories extend `JpaRepository` / `JpaSpecificationExecutor` and live
   in `internal/repository`. Entities live in `internal/entity` and extend the
   platform `BaseEntity` when audit columns are wanted.
-- **Identifiers: UUID v7, generated in the application.** Every generated id is
-  a **UUID v7** created with `UuidCreator.getTimeOrderedEpoch()` (dependency
-  `com.github.f4b6a3:uuid-creator`) — never `UUID.randomUUID()` (v4) and never
-  a DB-generated `@GeneratedValue` id. The database column is `uuid`, filled
-  from the application.
-  **Exception:** small, non-confidential reference/lookup tables (few rows,
-  nothing sensitive) may use a plain `identity` surrogate key instead.
+- **Identifiers:** two rules:
+  - **BIGINT (auto-increment)** for internal/reference IDs not shown to users (e.g. `channel_id`, `gateway_channel_config_id`, `platform_fee_rule_id`, `creator_fee_override_id`).
+  - **UUID v7** (`UuidCreator.getTimeOrderedEpoch()`) for user-facing IDs: trx ID, invoice ID, payment reference number. Not `UUID.randomUUID()` (v4), not DB-generated `@GeneratedValue`.
+  - **Exception:** small, non-confidential lookup tables (few rows) may use plain `identity` surrogate key.
 - **Enums live in the application only — never as a database enum type.**
   Persist an enum by its name in a text column (`@Enumerated(EnumType.STRING)`
   / a `varchar` column whose values the application or API layer validates).
