@@ -1,5 +1,6 @@
 service-account.json
-
+*.key
+*.pem
 .env
 .env.prod
 HELP.md
