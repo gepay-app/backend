@@ -1,272 +1,179 @@
-# Payment Module — End-to-End Flow Examples
+# Payment Module — End-to-End Flow Example
 
-> Pendamping [`payment-design.md`](./payment-design.md) & [`ledger-example.md`](../ledger/ledger-example.md).  
-> Menunjukkan alur lengkap dari webhook hingga payout, dengan state database di setiap step.
+> Pendamping [`payment-design.md`](./payment-design.md). Menunjukkan alur dana lengkap:
+> **duit masuk PG → settlement ke bank → dana creator PENDING→AVAILABLE → top-up payout provider → creator withdraw**, dengan jurnal ledger di tiap step.
+>
+> Semua nominal IDR bulat (`BIGINT`). Akun mengacu pada `AccountCode` enum modul `ledger`.
 
 ---
 
 ## Asumsi Contoh
 
-- Mata uang IDR, nominal `BIGINT` (rupiah bulat).
-- ID disingkat: `PAY-1`, `SET-1`, `WD-1`, `FT-1`, `PO-1`, `RF-1`, `ADJ-1`.
-- Jurnal: `J-1`..`J-11` (lihat `ledger-example.md`).
-- PG fee di-pass-through ke donatur. Fee platform dipotong dari donasi.
+- Donatur bayar donasi **Rp 100.000** via Midtrans VA BCA, creator `USER-123`.
+- Platform fee: `PLATFORM_DONATION` = fixed 1.000 + 5% → **6.000**; PPN 11% → **660**. Net creator = 100.000 − 6.660 = **93.340**.
+- PG fee VA BCA (pass-through ke donatur): fixed 4.000 + PPN 440 → **4.440** (tidak masuk ledger; dibayar donatur, dipotong PG sebelum settle).
+- `channel_routes` untuk VA BCA: `settlement_delay_days=3`, `settlement_business_days=true`, `settlement_target=BANK`.
+
+ID disingkat: `PAY-1`, `ATT-1`, `SET-1`, `WD-1`, `PO-1`, `FT-1`. Jurnal: `J-1`..`J-6`.
 
 ---
 
-## Seed Data (Ringkas)
+## Step 0 — Create Donation (Payment + Attempt)
 
-### Providers
-| id | code | name | payin | payout |
-|----|------|------|-------|--------|
-| 1 | MIDTRANS | Midtrans | ✓ | ✗ |
-| 2 | FLIP | Flip | ✗ | ✓ |
+**Input**: `type=DONATION`, `gross=100.000`, `channel=VA_BCA` → route Midtrans.
 
-### Channels
-| id | provider | code | name | type |
-|----|----------|------|------|------|
-| 1 | MIDTRANS | BCA_VA | BCA Virtual Account | VA |
-| 2 | FLIP | BANK_BCA | Bank BCA Transfer | BANK_TRANSFER |
-
-### Channel Routes
-| id | provider | channel | fee_config_id |
-|----|----------|---------|---------------|
-| 101 | MIDTRANS | BCA_VA | 501 |
-
-### Fee Configs (Rate Card)
-| id | version | platform_fee_bps | pg_fee_bps | vat_rate_bps | payout_fee_flat | payout_fee_bps | effective_from |
-|----|---------|------------------|------------|--------------|-----------------|----------------|----------------|
-| 501 | 1 | 600 | 290 | 110 | 2500 | 50 | 2024-01-01 |
-
----
-
-## Scenario 1: Donasi Berhasil (End-to-End)
-
-### Step 1: Webhook `payment.paid` dari Midtrans
-**Input**: `payment_id=PAY-1`, `amount=100000`, `channel=BCA_VA`, `paid_at=2024-01-15T10:00:00Z`
-
-**Payment DB State**:
+**DB state**:
 ```sql
--- payment.payments
-INSERT VALUES (id='PAY-1', amount=100000, status='PAID', channel_route_id=101, 
-               fee_snapshot='{"platform_fee_bps":600,"pg_fee_bps":290,"vat_rate_bps":110}',
-               paid_at='2024-01-15T10:00:00Z');
+-- payment.payments (fee di-snapshot, status PENDING)
+INSERT (id='PAY-1', provider_id=1 /*MIDTRANS*/, channel_id=2, channel_route_id=…,
+        gross_amount=100000, platform_fee_amount=6660, pg_fee_amount=4440,
+        total_charged_amount=104440, net_creator_amount=93340,
+        expected_settlement_amount=100000, status='PENDING');
 
--- payment.payment_attempts
-INSERT VALUES (id='ATT-1', payment_id='PAY-1', channel_id=1, amount=100000, status='SUCCESS');
-
--- payment.processed_events
-INSERT VALUES (id='PE-1', idempotency_key='MIDTRANS:PAY-1:PAID', event_type='payment.paid');
+-- payment.payment_attempts (order_id = UUID v7 attempt itu sendiri)
+INSERT (id='ATT-1', payment_id='PAY-1', channel_route_id=…,
+        provider_reference_id='ATT-1', status='PENDING', expires_at=now()+1h);
 ```
 
-**Ledger Jurnal** → **J-1** (lihat `ledger-example.md`):
-- DEBIT PG_CLEARING_RECEIVABLE (MIDTRANS) 100.000
-- CREDIT CREATOR_PAYABLE_PENDING (USER-123) 93.340
-- CREDIT PLATFORM_FEE_REVENUE 6.000
-- CREDIT VAT_PAYABLE 660
+Belum ada jurnal.
 
 ---
 
-### Step 2: Settlement Dikonfirmasi (Laporan Midtrans Diterima)
-**Input**: `settlement_id=SET-1`, `provider=MIDTRANS`, `amount=100000`, `period=2024-01-15`, `evidence_file=...`
+## Step 1 — Webhook PAID (Midtrans `transaction_status=settlement`)
 
-**Payment DB State**:
+Midtrans kirim webhook status `settlement` (+`fraud_status=accept`). Adapter memetakan ke event kanonik `PAYMENT_PAID`.
+
+**DB state**:
 ```sql
--- payment.settlements
-INSERT VALUES (id='SET-1', provider_id=1, amount=100000, status='CONFIRMED',
-               evidence_ref='s3://bucket/set-1.json', confirmed_at='2024-01-17T09:00:00Z');
-
--- payment.settlement_items
-INSERT VALUES (settlement_id='SET-1', payment_attempt_id='ATT-1', amount=100000);
+-- payments.status='PAID', paid_at=…, expected_settlement_date = paid_at + 3 hari kerja
+-- payment_attempts.status='PAID'
+-- processed_events: (provider_id=1, external_event_id='<id webhook>', type='PAYMENT_PAID')
 ```
 
-**Ledger Jurnal** → **J-2**:
-- DEBIT PAYIN_PROVIDER_BALANCE (MIDTRANS) 100.000
-- CREDIT PG_CLEARING_RECEIVABLE (MIDTRANS) 100.000
+**Ledger Jurnal → J-1** (`PAYMENT:PAY-1:PAID`):
+| Account | Owner | Direction | Amount |
+|---|---|---|---|
+| `PG_CLEARING_RECEIVABLE` (1100) | MIDTRANS | DEBIT | 100.000 |
+| `CREATOR_PAYABLE_PENDING` (2100) | USER-123 | CREDIT | 93.340 |
+| `PLATFORM_FEE_REVENUE` (4000) | – | CREDIT | 6.000 |
+| `VAT_PAYABLE` (2300) | – | CREDIT | 660 |
 
-**Ledger Jurnal** → **J-3** (Release Creator):
-- DEBIT CREATOR_PAYABLE_PENDING (USER-123) 93.340
-- CREDIT CREATOR_PAYABLE_AVAILABLE (USER-123) 93.340
+Σ DEBIT = Σ CREDIT = 100.000 ✓. Uang sekarang "di Midtrans" (piutang), creator **masih PENDING**.
 
 ---
 
-### Step 3: Creator Request Withdraw
-**Input**: `creator=USER-123`, `amount=500000`, `destination=DEST-1 (BCA 1234567890)`
+## Step 2 — Settlement (Bukti: mutasi bank / konfirmasi MAP)
 
-**Payment DB State**:
+Midtrans cairkan Rp 100.000 ke rekening platform (pencairan manual dari MAP; **tidak ada webhook**). Admin input bukti:
+
+**Input**: `provider=MIDTRANS`, `actual_amount=100.000`, `actual_settled_at=…`,
+`evidence_source=MANUAL|BANK_STATEMENT`, `evidence_reference='<ref mutasi>'`,
+`settlement_target=BANK`, CSV order_id: `ATT-1`.
+
+**DB state**:
 ```sql
--- payment.withdrawals
-INSERT VALUES (id='WD-1', user_id='USER-123', amount=500000, status='PENDING',
-               payout_destination_id=1, requested_at='2024-01-20T14:00:00Z');
+-- payment.settlements (batch header)
+INSERT (id='SET-1', provider_id=1, status='CONFIRMED', expected_amount=100000,
+        actual_amount=100000, variance_amount=0, settlement_target='BANK',
+        evidence_source='BANK_STATEMENT', actual_settled_at=…, confirmed_at=…);
+
+-- payment.payments.settlement_id='SET-1', settled_at=…
 ```
 
-**Ledger Jurnal** → **J-4**:
-- DEBIT CREATOR_PAYABLE_AVAILABLE (USER-123) 500.000
-- CREDIT WITHDRAWAL_PAYABLE (USER-123) 500.000
+**Ledger Jurnal → J-2** (`SETTLEMENT:SET-1:CONFIRMED`) — dana PG → bank platform:
+| Account | Owner | Direction | Amount |
+|---|---|---|---|
+| `BANK_OPERATING` (1200) | BANK-1 | DEBIT | 100.000 |
+| `PG_CLEARING_RECEIVABLE` (1100) | MIDTRANS | CREDIT | 100.000 |
+
+*(Kalau `actual != expected`, selisihnya dibukukan ke `FUND_TRANSFER_VARIANCE` (5900).)*
+
+**Ledger Jurnal → J-3** (`SETTLEMENT:SET-1:RELEASE`) — creator PENDING → AVAILABLE:
+| Account | Owner | Direction | Amount |
+|---|---|---|---|
+| `CREATOR_PAYABLE_PENDING` (2100) | USER-123 | DEBIT | 93.340 |
+| `CREATOR_PAYABLE_AVAILABLE` (2110) | USER-123 | CREDIT | 93.340 |
+
+Sekarang creator punya saldo **available 93.340** dan boleh menarik.
 
 ---
 
-### Step 4: Payout ke Flip (Quartz Job)
-**Processing**: `PayoutService.processPayout(WD-1)` → call Flip API
+## Step 3 — Fund Transfer (bank platform → payout provider/Flip)
 
-**Payment DB State**:
-```sql
--- payment.payouts
-INSERT VALUES (id='PO-1', withdrawal_id='WD-1', amount=500000, fee=3000,
-               status='COMPLETED', flip_transfer_id='FLIP-TRF-123',
-               completed_at='2024-01-20T14:05:00Z');
+Sebelum bisa payout, platform top-up float Flip dari rekening bank (operasional).
 
--- payment.withdrawals UPDATE status='COMPLETED'
-```
-
-**Ledger Jurnal** → **J-6**:
-- DEBIT WITHDRAWAL_PAYABLE (USER-123) 500.000
-- DEBIT PAYOUT_FEE_EXPENSE 3.000
-- CREDIT WITHDRAWAL_FEE_REVENUE 2.500
-- CREDIT PAYOUT_PROVIDER_FLOAT (FLIP) 500.500
-
----
-
-## Scenario 2: Fund Transfer (Top-up Midtrans → Flip)
-
-**Input**: `fund_transfer_id=FT-1`, `from_provider=MIDTRANS`, `to_provider=FLIP`, `amount=503000`
-
-**Payment DB State**:
+**DB state**:
 ```sql
 -- payment.fund_transfers
-INSERT VALUES (id='FT-1', from_provider_id=1, to_provider_id=2, amount=503000,
-               status='COMPLETED', bank_transfer_ref='TRF-20240120-001',
-               completed_at='2024-01-20T11:00:00Z');
+INSERT (id='FT-1', direction='TO_PAYOUT_PROVIDER', source_type='BANK',
+        target_type='PAYOUT_PROVIDER', counterparty_provider_id=2 /*FLIP*/,
+        sent_amount=500500, status='COMPLETED', bank_reference=…);
 ```
 
-**Ledger Jurnal** → **J-5**:
-- DEBIT PAYOUT_PROVIDER_FLOAT (FLIP) 503.000
-- CREDIT PAYIN_PROVIDER_BALANCE (MIDTRANS) 503.000
+**Ledger Jurnal → J-4** (`FUND_TRANSFER:FT-1`):
+| Account | Owner | Direction | Amount |
+|---|---|---|---|
+| `PAYOUT_PROVIDER_FLOAT` (1300) | FLIP | DEBIT | 500.500 |
+| `BANK_OPERATING` (1200) | BANK-1 | CREDIT | 500.500 |
 
 ---
 
-## Scenario 3: Refund Setelah Settlement
+## Step 4 — Withdrawal HOLD (creator tarik dana)
 
-**Input**: `refund_id=RF-1`, `payment_id=PAY-1`, `reason=DONOR_REQUEST`, `original_journal_id=J-1`
+Creator `USER-123` request withdraw Rp 90.000; fee platform Rp 3.000, net diterima Rp 87.000.
 
-**Payment DB State**:
+**DB state**:
 ```sql
--- payment.refunds
-INSERT VALUES (id='RF-1', payment_id='PAY-1', amount=100000, status='COMPLETED',
-               midtrans_refund_id='MID-REF-123', processed_at='2024-01-25T10:00:00Z');
+-- payment.withdrawals
+INSERT (id='WD-1', user_id='USER-123', destination_id=…, status='REQUESTED',
+        requested_amount=90000, withdrawal_fee_amount=3000, net_disbursement_amount=87000, …);
 ```
 
-**Ledger Jurnal** → **J-8** (Reversal):
-- DEBIT CREATOR_PAYABLE_AVAILABLE (USER-123) 93.340
-- DEBIT PLATFORM_FEE_REVENUE 6.000
-- DEBIT VAT_PAYABLE 660
-- CREDIT PAYIN_PROVIDER_BALANCE (MIDTRANS) 100.000
-- `reverses_journal_id = J-1`
+**Ledger Jurnal → J-5** (`WITHDRAWAL:WD-1:HOLD`) — available di-hold:
+| Account | Owner | Direction | Amount |
+|---|---|---|---|
+| `CREATOR_PAYABLE_AVAILABLE` (2110) | USER-123 | DEBIT | 90.000 |
+| `WITHDRAWAL_PAYABLE` (2200) | USER-123 | CREDIT | 90.000 |
 
 ---
 
-## Scenario 4: Refund Sebelum Settlement (Hanya Pending)
+## Step 5 — Payout via Flip (COMPLETED)
 
-**Input**: `refund_id=RF-2`, `payment_id=PAY-2` (belum di-settle), `original_journal_id=J-1b`
+`PayoutService.processPayout(WD-1)` → Flip disbursement. Fee provider (Flip) Rp 2.500.
 
-**Ledger Jurnal** → **J-9**:
-- DEBIT CREATOR_PAYABLE_PENDING (USER-123) 93.340
-- DEBIT PLATFORM_FEE_REVENUE 6.000
-- DEBIT VAT_PAYABLE 660
-- CREDIT PG_CLEARING_RECEIVABLE (MIDTRANS) 100.000
-- `reverses_journal_id = J-1b`
-
----
-
-## Scenario 5: Adjustment (Koreksi Selisih Rekonsiliasi)
-
-**Input**: `adjustment_id=ADJ-1`, `maker=USER-ADMIN`, `approver=USER-FINANCE`, `variance=500` (MIDTRANS kurang)
-
-**Payment DB State**:
+**DB state**:
 ```sql
--- payment.adjustments
-INSERT VALUES (id='ADJ-1', type='VARIANCE', provider_id=1, amount=500,
-               status='APPROVED', maker_id='USER-ADMIN', approver_id='USER-FINANCE',
-               approved_at='2024-01-31T10:00:00Z');
+-- payment.payouts
+INSERT (id='PO-1', withdrawal_id='WD-1', provider_id=2 /*FLIP*/, status='COMPLETED',
+        amount=87000, provider_fee_amount=2500, provider_reference_id='<flip ref>', …);
+-- payment.withdrawals.status='PAID', completed_at=…
 ```
 
-**Ledger Jurnal** → **J-10**:
-- DEBIT FUND_TRANSFER_VARIANCE 500
-- CREDIT PAYIN_PROVIDER_BALANCE (MIDTRANS) 500
+**Ledger Jurnal → J-6** (`PAYOUT:PO-1:COMPLETED`):
+| Account | Owner | Direction | Amount |
+|---|---|---|---|
+| `WITHDRAWAL_PAYABLE` (2200) | USER-123 | DEBIT | 90.000 |
+| `PAYOUT_FEE_EXPENSE` (5100) | – | DEBIT | 2.500 |
+| `WITHDRAWAL_FEE_REVENUE` (4100) | – | CREDIT | 3.000 |
+| `PAYOUT_PROVIDER_FLOAT` (1300) | FLIP | CREDIT | 89.500 |
+
+Σ DEBIT = 92.500 = Σ CREDIT ✓. Float Flip berkurang = 87.000 (ke creator) + 2.500 (fee provider).
 
 ---
 
-## Scenario 6: Chargeback (Setelah Withdraw)
+## Ringkasan Saldo (subset)
 
-**Input**: `chargeback_id=CB-1`, `payment_id=PAY-1`, `amount=100000`, `creator_already_withdrawn=true`
+| Account (code) | Owner | Saldo akhir |
+|---|---|---|
+| `PG_CLEARING_RECEIVABLE` (1100) | MIDTRANS | 0 |
+| `BANK_OPERATING` (1200) | BANK-1 | 100.000 − 500.500 = −400.500 |
+| `PAYOUT_PROVIDER_FLOAT` (1300) | FLIP | 500.500 − 89.500 = 411.000 |
+| `CREATOR_PAYABLE_PENDING` (2100) | USER-123 | 0 |
+| `CREATOR_PAYABLE_AVAILABLE` (2110) | USER-123 | 93.340 − 90.000 = 3.340 |
+| `WITHDRAWAL_PAYABLE` (2200) | USER-123 | 0 |
+| `VAT_PAYABLE` (2300) | – | 660 |
+| `PLATFORM_FEE_REVENUE` (4000) | – | 6.000 |
+| `WITHDRAWAL_FEE_REVENUE` (4100) | – | 3.000 |
+| `PAYOUT_FEE_EXPENSE` (5100) | – | 2.500 |
 
-**Payment DB State**:
-```sql
--- payment.chargebacks (extension table)
-INSERT VALUES (id='CB-1', payment_id='PAY-1', amount=100000, status='RECEIVED',
-               received_at='2024-02-01T10:00:00Z');
-```
-
-**Ledger Jurnal** → **J-11**:
-- DEBIT REFUND_CHARGEBACK_LOSS 100.000
-- CREDIT PAYIN_PROVIDER_BALANCE (MIDTRANS) 100.000
-- DEBIT CREATOR_NEGATIVE_BALANCE (USER-123) 93.340
-- CREDIT CREATOR_PAYABLE_AVAILABLE (USER-123) 93.340
-
-> **Note**: `CREATOR_NEGATIVE_BALANCE` (5300) = piutang ke creator untuk clawback.  
-> Collector job akan tagih creator atau potong dari future earnings.
-
----
-
-## Database State Summary (After All Scenarios)
-
-### `ledger.accounts` (Subset)
-| code | owner_type | owner_ref | balance | version |
-|------|------------|-----------|---------|---------|
-| 1100 | PAYMENT_PROVIDER | MIDTRANS | 0 | 3 |
-| 1150 | PAYMENT_PROVIDER | MIDTRANS | 503.000 | 2 |
-| 1200 | BANK | BANK-1 | 0 | 1 |
-| 1300 | PAYOUT_PROVIDER | FLIP | 500.500 | 2 |
-| 2100 | USER | USER-123 | 0 | 2 |
-| 2110 | USER | USER-123 | 406.660* | 4 |
-| 2200 | USER | USER-123 | 0 | 2 |
-| 2300 | NULL | NULL | 0 | 2 |
-| 4000 | NULL | NULL | 0 | 2 |
-| 4100 | NULL | NULL | 2.500 | 1 |
-| 5000 | NULL | NULL | 0 | 1 |
-| 5100 | NULL | NULL | 3.000 | 1 |
-| 5200 | NULL | NULL | 100.000 | 1 |
-| 5300 | USER | USER-123 | 93.340 | 1 |
-| 5900 | NULL | NULL | 500 | 1 |
-
-\* `2110` balance = 93.340 (from PAY-1) - 500.000 (WD-1) + 93.340 (refund RF-1 clawback) + 406.660... hitung manual ya.
-
-### `ledger.journals`
-| id | idempotency_key | reference_type | reference_id | reverses_journal_id |
-|----|-----------------|----------------|--------------|---------------------|
-| J-1 | PAYMENT:PAY-1:PAID | PAYMENT | PAY-1 | NULL |
-| J-2 | SETTLEMENT:SET-1:CONFIRMED | SETTLEMENT | SET-1 | NULL |
-| J-3 | SETTLEMENT:SET-1:RELEASE | SETTLEMENT | SET-1 | NULL |
-| J-4 | WITHDRAWAL:WD-1:HOLD | WITHDRAWAL | WD-1 | NULL |
-| J-5 | FUND_TRANSFER:FT-1 | FUND_TRANSFER | FT-1 | NULL |
-| J-6 | PAYOUT:PO-1:COMPLETED | PAYOUT | PO-1 | NULL |
-| J-8 | REFUND:RF-1 | REFUND | RF-1 | J-1 |
-| J-9 | REFUND:RF-2 | REFUND | RF-2 | J-1b |
-| J-10 | ADJUSTMENT:ADJ-1 | ADJUSTMENT | ADJ-1 | NULL |
-| J-11 | CHARGEBACK:CB-1 | ADJUSTMENT | CB-1 | NULL |
-
----
-
-## Verifikasi Balance (Audit Trail)
-
-Setiap akun: `balance = Σ(DEBIT entries) - Σ(CREDIT entries)` untuk tipe ASSET/EXPENSE,  
-atau `Σ(CREDIT) - Σ(DEBIT)` untuk LIABILITY/REVENUE/EQUITY.
-
-Contoh verifikasi `CREATOR_PAYABLE_AVAILABLE (2110)` untuk `USER-123`:
-- J-3: CREDIT +93.340
-- J-4: DEBIT -500.000
-- J-8: DEBIT -93.340 (refund clawback)
-- J-11: CREDIT +93.340 (chargeback clawback)
-- **Total = -406.660** → Liability berarti credit normal, jadi balance = 406.660 kredit (utang ke creator)
-
-Semua jurnal **SELALU** balanced (ΣDEBIT = ΣCREDIT) di level database.
+> Semua jurnal **SELALU** balanced (ΣDEBIT = ΣCREDIT). Ledger bersifat append-only — koreksi lewat jurnal reversal, bukan edit.

@@ -6,7 +6,7 @@ import org.springframework.http.HttpStatus;
  * Contract for every application error code (see §6 of {@code AGENTS.md}).
  *
  * <p>Each module owns an enum implementing this interface — e.g.
- * {@code IdentityError} inside module {@code user} — where one constant bundles the
+ * {@code IdentityError} inside module {@code identity} — where one constant bundles the
  * HTTP status and the message key of one error. The {@link com.gepe.gepay.platform.web.GlobalExceptionHandler}
  * only sees this interface: it maps the status from the code and resolves the
  * key through the aggregated MessageSource, so platform code never depends on a

@@ -116,9 +116,9 @@ class AccountServiceTest {
     @DisplayName("getOrCreateAccount throws when ownerRef required but missing")
     void getOrCreateAccount_MissingOwnerRef_Throws() {
         assertThatThrownBy(() -> accountService.getOrCreateAccount(AccountCode.PG_CLEARING_RECEIVABLE, null))
-                .hasMessageContaining("owner-ref-required");
+                .hasMessageContaining("owner_ref_required");
         assertThatThrownBy(() -> accountService.getOrCreateAccount(AccountCode.PG_CLEARING_RECEIVABLE, ""))
-                .hasMessageContaining("owner-ref-required");
+                .hasMessageContaining("owner_ref_required");
     }
 
     @Test
@@ -145,7 +145,7 @@ class AccountServiceTest {
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> accountService.getAccount(AccountCode.PG_CLEARING_RECEIVABLE, "MIDTRANS"))
-                .hasMessageContaining("account-not-found");
+                .hasMessageContaining("account_not_found");
     }
 
     @Test

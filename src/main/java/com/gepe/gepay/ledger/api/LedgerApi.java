@@ -43,17 +43,4 @@ public interface LedgerApi {
     // Balance queries (read path, cached)
     AccountDto getBalance(AccountCode code, String ownerRef);
     long getBalanceAmount(AccountCode code, String ownerRef);
-
-//    // Convenience overload: auto-generates idempotencyKey from referenceType + referenceId + description hash
-//    default PostJournalResult postJournal(
-//            JournalReferenceType referenceType,
-//            String referenceId,
-//            String description,
-//            Instant occurredAt,
-//            List<JournalLine> lines,
-//            Long reversesJournalId
-//    ) {
-//        String idemKey = referenceType.name() + ":" + referenceId + ":" + Integer.toHexString(description.hashCode());
-//        return postJournal(idemKey, referenceType, referenceId, description, occurredAt, lines, reversesJournalId);
-//    }
 }

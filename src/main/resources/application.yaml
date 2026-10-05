@@ -30,8 +30,8 @@ spring:
     # Note: if a module table ever lives in a schema literally named `user`
     # (reserved word in Postgres), the entity needs @Table(schema = "`user`")
     # — Hibernate 7 no longer honors hibernate.auto_quote_keyword. The example
-    # `user` module avoids this by using the plural table name `users` in the
-    # default schema (V3__create_users_table.sql).
+    # `identity` module avoids this by using the plural table name `users` in the
+    # default schema (V3__identity_tables.sql).
   flyway:
     enabled: true
     locations:

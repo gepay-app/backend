@@ -10,7 +10,7 @@ import java.util.List;
  * <p>Contract:
  * <ul>
  *   <li>{@code code} — stable, machine-readable error identifier. It always
- *       equals the resolved message key (e.g. {@code user.not-found},
+ *       equals the resolved message key (e.g. {@code identity.user_not_found},
  *       {@code validation.failed}) and is what frontends use for branching
  *       logic; never derive logic from {@link #message()}. Message keys are
  *       public API — renaming one is a breaking change.</li>

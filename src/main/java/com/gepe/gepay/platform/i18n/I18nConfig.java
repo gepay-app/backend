@@ -22,8 +22,8 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
  *
  * <p>Registers one basename per folder found under the classpath directory
  * {@code i18n} — {@code i18n/<folder>/messages} — so the app-wide
- * {@code i18n/messages/} bundle and every module bundle ({@code i18n/user/},
- * {@code i18n/order/}, …) are resolved through this one bean. Adding a module
+ * {@code i18n/messages/} bundle and every module bundle ({@code i18n/identity/},
+ * {@code i18n/ledger/}, …) are resolved through this one bean. Adding a module
  * bundle therefore needs no configuration change.
  *
  * <p>The bean deliberately uses the conventional name

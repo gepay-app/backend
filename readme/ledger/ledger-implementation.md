@@ -710,16 +710,16 @@ import org.springframework.http.HttpStatus;
 
 public enum LedgerError implements ErrorCode {
 
-    ACCOUNT_NOT_FOUND(HttpStatus.NOT_FOUND, "ledger.account-not-found"),
-    UNBALANCED_JOURNAL(HttpStatus.BAD_REQUEST, "ledger.unbalanced-journal"),
-    IDEMPOTENCY_CONFLICT(HttpStatus.CONFLICT, "ledger.idempotency-conflict"),
-    JOURNAL_MIN_LINES(HttpStatus.BAD_REQUEST, "ledger.journal-min-lines"),
-    INVALID_AMOUNT(HttpStatus.BAD_REQUEST, "ledger.invalid-amount"),
-    REVERSES_JOURNAL_NOT_FOUND(HttpStatus.NOT_FOUND, "ledger.reverses-journal-not-found"),
-    ACCOUNT_INACTIVE(HttpStatus.CONFLICT, "ledger.account-inactive"),
-    CONCURRENT_BALANCE_UPDATE(HttpStatus.CONFLICT, "ledger.concurrent-balance-update"),
-    ACCOUNT_CODE_INVALID(HttpStatus.BAD_REQUEST, "ledger.account-code-invalid"),
-    OWNER_REF_REQUIRED(HttpStatus.BAD_REQUEST, "ledger.owner-ref-required");
+    ACCOUNT_NOT_FOUND(HttpStatus.NOT_FOUND, "ledger.account_not_found"),
+    UNBALANCED_JOURNAL(HttpStatus.BAD_REQUEST, "ledger.unbalanced_journal"),
+    IDEMPOTENCY_CONFLICT(HttpStatus.CONFLICT, "ledger.idempotency_conflict"),
+    JOURNAL_MIN_LINES(HttpStatus.BAD_REQUEST, "ledger.journal_min_lines"),
+    INVALID_AMOUNT(HttpStatus.BAD_REQUEST, "ledger.invalid_amount"),
+    REVERSES_JOURNAL_NOT_FOUND(HttpStatus.NOT_FOUND, "ledger.reverses_journal_not_found"),
+    ACCOUNT_INACTIVE(HttpStatus.CONFLICT, "ledger.account_inactive"),
+    CONCURRENT_BALANCE_UPDATE(HttpStatus.CONFLICT, "ledger.concurrent_balance_update"),
+    ACCOUNT_CODE_INVALID(HttpStatus.BAD_REQUEST, "ledger.account_code_invalid"),
+    OWNER_REF_REQUIRED(HttpStatus.BAD_REQUEST, "ledger.owner_ref_required");
 
     private final HttpStatus httpStatus;
     private final String messageKey;
@@ -768,32 +768,32 @@ public class LedgerCacheConfig {
 
 ```properties
 # Ledger module messages (English - default)
-ledger.account-not-found=Account with code {0} and owner {1} was not found
-ledger.unbalanced-journal=Journal is unbalanced: debit={0}, credit={1}
-ledger.idempotency-conflict=Journal with idempotency key {0} already exists
-ledger.journal-min-lines=Journal must have at least 2 lines (debit and credit)
-ledger.invalid-amount=Invalid amount for account {0}: must be positive
-ledger.reverses-journal-not-found=Reverses journal with id {0} not found
-ledger.account-inactive=Account {0} is inactive
-ledger.concurrent-balance-update=Concurrent balance update detected, please retry
-ledger.account-code-invalid=Invalid account code: {0}
-ledger.owner-ref-required=Owner reference is required for account code {0}
+ledger.account_not_found=Account with code {0} and owner {1} was not found
+ledger.unbalanced_journal=Journal is unbalanced: debit={0}, credit={1}
+ledger.idempotency_conflict=Journal with idempotency key {0} already exists
+ledger.journal_min_lines=Journal must have at least 2 lines (debit and credit)
+ledger.invalid_amount=Invalid amount for account {0}: must be positive
+ledger.reverses_journal_not_found=Reverses journal with id {0} not found
+ledger.account_inactive=Account {0} is inactive
+ledger.concurrent_balance_update=Concurrent balance update detected, please retry
+ledger.account_code_invalid=Invalid account code: {0}
+ledger.owner_ref_required=Owner reference is required for account code {0}
 ```
 
 ### `src/main/resources/i18n/ledger/messages_id.properties`
 
 ```properties
 # Ledger module messages (Indonesian)
-ledger.account-not-found=Akun dengan kode {0} dan pemilik {1} tidak ditemukan
-ledger.unbalanced-journal=Jurnal tidak seimbang: debit={0}, kredit={1}
-ledger.idempotency-conflict=Jurnal dengan kunci idempotensi {0} sudah ada
-ledger.journal-min-lines=Jurnal minimal harus memiliki 2 baris (debit dan kredit)
-ledger.invalid-amount=Jumlah tidak valid untuk akun {0}: harus positif
-ledger.reverses-journal-not-found=Jurnal pembalikan dengan id {0} tidak ditemukan
-ledger.account-inactive=Akun {0} tidak aktif
-ledger.concurrent-balance-update=Terjadi pembaruan saldo bersamaan, silakan coba lagi
-ledger.account-code-invalid=Kode akun tidak valid: {0}
-ledger.owner-ref-required=Referensi pemilik wajib diisi untuk kode akun {0}
+ledger.account_not_found=Akun dengan kode {0} dan pemilik {1} tidak ditemukan
+ledger.unbalanced_journal=Jurnal tidak seimbang: debit={0}, kredit={1}
+ledger.idempotency_conflict=Jurnal dengan kunci idempotensi {0} sudah ada
+ledger.journal_min_lines=Jurnal minimal harus memiliki 2 baris (debit dan kredit)
+ledger.invalid_amount=Jumlah tidak valid untuk akun {0}: harus positif
+ledger.reverses_journal_not_found=Jurnal pembalikan dengan id {0} tidak ditemukan
+ledger.account_inactive=Akun {0} tidak aktif
+ledger.concurrent_balance_update=Terjadi pembaruan saldo bersamaan, silakan coba lagi
+ledger.account_code_invalid=Kode akun tidak valid: {0}
+ledger.owner_ref_required=Referensi pemilik wajib diisi untuk kode akun {0}
 ```
 
 ---

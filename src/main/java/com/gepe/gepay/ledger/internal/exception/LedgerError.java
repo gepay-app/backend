@@ -6,17 +6,17 @@ import org.springframework.http.HttpStatus;
 
 @Getter
 public enum LedgerError implements ErrorCode {
-    ACCOUNT_NOT_FOUND(HttpStatus.NOT_FOUND, "ledger.account-not-found"),
-    UNBALANCED_JOURNAL(HttpStatus.BAD_REQUEST, "ledger.unbalanced-journal"),
-    IDEMPOTENCY_CONFLICT(HttpStatus.CONFLICT, "ledger.idempotency-conflict"),
-    JOURNAL_MIN_LINES(HttpStatus.BAD_REQUEST, "ledger.journal-min-lines"),
-    INVALID_AMOUNT(HttpStatus.BAD_REQUEST, "ledger.invalid-amount"),
-    REVERSES_JOURNAL_NOT_FOUND(HttpStatus.NOT_FOUND, "ledger.reverses-journal-not-found"),
-    JOURNAL_ALREADY_REVERSED(HttpStatus.CONFLICT, "ledger.journal-already-reversed"),
-    ACCOUNT_INACTIVE(HttpStatus.CONFLICT, "ledger.account-inactive"),
-    CONCURRENT_BALANCE_UPDATE(HttpStatus.CONFLICT, "ledger.concurrent-balance-update"),
-    ACCOUNT_CODE_INVALID(HttpStatus.BAD_REQUEST, "ledger.account-code-invalid"),
-    OWNER_REF_REQUIRED(HttpStatus.BAD_REQUEST, "ledger.owner-ref-required");
+    ACCOUNT_NOT_FOUND(HttpStatus.NOT_FOUND, "ledger.account_not_found"),
+    UNBALANCED_JOURNAL(HttpStatus.BAD_REQUEST, "ledger.unbalanced_journal"),
+    IDEMPOTENCY_CONFLICT(HttpStatus.CONFLICT, "ledger.idempotency_conflict"),
+    JOURNAL_MIN_LINES(HttpStatus.BAD_REQUEST, "ledger.journal_min_lines"),
+    INVALID_AMOUNT(HttpStatus.BAD_REQUEST, "ledger.invalid_amount"),
+    REVERSES_JOURNAL_NOT_FOUND(HttpStatus.NOT_FOUND, "ledger.reverses_journal_not_found"),
+    JOURNAL_ALREADY_REVERSED(HttpStatus.CONFLICT, "ledger.journal_already_reversed"),
+    ACCOUNT_INACTIVE(HttpStatus.CONFLICT, "ledger.account_inactive"),
+    CONCURRENT_BALANCE_UPDATE(HttpStatus.CONFLICT, "ledger.concurrent_balance_update"),
+    ACCOUNT_CODE_INVALID(HttpStatus.BAD_REQUEST, "ledger.account_code_invalid"),
+    OWNER_REF_REQUIRED(HttpStatus.BAD_REQUEST, "ledger.owner_ref_required");
     private final HttpStatus httpStatus;
     private final String messageKey;
 
