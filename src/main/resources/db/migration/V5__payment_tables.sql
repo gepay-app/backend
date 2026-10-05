@@ -159,10 +159,10 @@ FROM (VALUES
           -- =========================================================================
           -- 1. PLATFORM FEES (Global - Tanpa Provider/Channel)
           -- =========================================================================
-          ('PLATFORM_DONATION', NULL, NULL, 0, 500, 1100, TIMESTAMPTZ '2026-10-03 00:00:00+07',
-           'Platform fee donasi (5% + PPN 11%)'),
-          ('PLATFORM_CONTENT', NULL, NULL, 0, 500, 1100, TIMESTAMPTZ '2026-10-03 00:00:00+07',
-           'Platform fee konten (5% + PPN 11%)'),
+          ('PLATFORM_DONATION', NULL, NULL, 1000, 500, 1100, TIMESTAMPTZ '2026-10-03 00:00:00+07',
+           'Platform fee donasi ((1000+5%) + PPN 11%)'),
+          ('PLATFORM_CONTENT', NULL, NULL, 1000, 500, 1100, TIMESTAMPTZ '2026-10-03 00:00:00+07',
+           'Platform fee konten ((1000+5%) + PPN 11%)'),
           ('PLATFORM_WITHDRAWAL', NULL, NULL, 3000, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
            'Platform withdrawal fee flat Rp3.000'),
 
@@ -545,34 +545,3 @@ CREATE TABLE payment.reconciliation_items
 );
 CREATE INDEX ix_recon_items_run ON payment.reconciliation_items (run_id, status);
 
--- =====================================================================
--- SEEDER — Chart of Accounts
--- Kontrol (owner NULL) di-seed sekarang; sub-account provider mengikuti provider.
--- Sub-account creator (2100/2110/2200/5300) dibuat LAZY saat creator pertama dapat hak.
--- =====================================================================
-
--- Akun kontrol global (tanpa owner).
-INSERT INTO ledger.accounts (code, name, type, normal_balance, owner_type, owner_ref)
-VALUES ('2300', 'VAT Payable', 'LIABILITY', 'CREDIT', NULL, NULL),
-       ('4000', 'Platform Fee Revenue', 'REVENUE', 'CREDIT', NULL, NULL),
-       ('4100', 'Withdrawal Fee Revenue', 'REVENUE', 'CREDIT', NULL, NULL),
-       ('5000', 'Payment Gateway Fee Expense', 'EXPENSE', 'DEBIT', NULL, NULL),
-       ('5100', 'Payout Fee Expense', 'EXPENSE', 'DEBIT', NULL, NULL),
-       ('5200', 'Refund / Chargeback Loss', 'EXPENSE', 'DEBIT', NULL, NULL)
-ON CONFLICT ON CONSTRAINT ux_accounts_code_owner DO NOTHING;
-
--- Akun clearing per provider payin (1100 + 1150).
-INSERT INTO ledger.accounts (code, name, type, normal_balance, owner_type, owner_ref)
-SELECT v.code, v.name, 'ASSET', 'DEBIT', 'PAYMENT_PROVIDER', p.id::text
-FROM (VALUES ('1100', 'PG Clearing Receivable'),
-             ('1150', 'Payin Provider Balance')) AS v(code, name)
-         CROSS JOIN payment.providers p
-WHERE p.supports_payin
-ON CONFLICT ON CONSTRAINT ux_accounts_code_owner DO NOTHING;
-
--- Akun float per provider payout (1300).
-INSERT INTO ledger.accounts (code, name, type, normal_balance, owner_type, owner_ref)
-SELECT '1300', 'Payout Provider Float', 'ASSET', 'DEBIT', 'PAYOUT_PROVIDER', p.id::text
-FROM payment.providers p
-WHERE p.supports_payout
-ON CONFLICT ON CONSTRAINT ux_accounts_code_owner DO NOTHING;

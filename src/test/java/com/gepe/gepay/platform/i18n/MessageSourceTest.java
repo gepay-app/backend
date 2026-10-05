@@ -35,6 +35,7 @@ class MessageSourceTest {
         assertThat(I18nConfig.discoverBasenames())
                 .containsExactly("i18n/messages/messages",
                         "i18n/identity/messages",     // feature module bundle (main resources)
+                        "i18n/ledger/messages",       // feature module bundle (main resources)
                         "i18n/testmodule/messages");  // test fixture under src/test/resources
     }
 

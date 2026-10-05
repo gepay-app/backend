@@ -55,3 +55,35 @@ CREATE TABLE ledger.entries
 );
 CREATE INDEX ix_entries_journal ON ledger.entries (journal_id);
 CREATE INDEX ix_entries_account ON ledger.entries (account_id, id);
+
+
+
+-- =====================================================================
+-- SEEDER — Ledger Chart of Accounts (schema ledger saja)
+-- Hanya akun GLOBAL (tanpa owner) + rekening bank operasional.
+-- TIDAK ada referensi ke schema payment (beda module).
+--
+-- Tidak di-seed (dibuat LAZY lewat Account.open + ON CONFLICT DO NOTHING):
+--   - 1100 / 1150 per provider payin   (owner_ref = provider id)
+--   - 1300 per provider payout         (owner_ref = provider id)
+--   - 2100 / 2110 / 2200 / 5300 per user (owner_ref = user id)
+-- Idempoten: aman dijalankan ulang.
+-- =====================================================================
+
+-- Akun global (owner NULL)
+INSERT INTO ledger.accounts (code, name, type, normal_balance, owner_type, owner_ref)
+VALUES ('1400', 'Fund Transfer In Transit', 'ASSET', 'DEBIT', NULL, NULL),
+       ('2300', 'VAT Payable', 'LIABILITY', 'CREDIT', NULL, NULL),
+       ('4000', 'Platform Fee Revenue', 'REVENUE', 'CREDIT', NULL, NULL),
+       ('4100', 'Withdrawal Fee Revenue', 'REVENUE', 'CREDIT', NULL, NULL),
+       ('5000', 'Payment Gateway Fee Expense', 'EXPENSE', 'DEBIT', NULL, NULL),
+       ('5100', 'Payout Fee Expense', 'EXPENSE', 'DEBIT', NULL, NULL),
+       ('5150', 'Bank / Fund Transfer Fee Expense', 'EXPENSE', 'DEBIT', NULL, NULL),
+       ('5200', 'Refund / Chargeback Loss', 'EXPENSE', 'DEBIT', NULL, NULL),
+       ('5900', 'Fund Transfer Variance', 'EXPENSE', 'DEBIT', NULL, NULL)
+ON CONFLICT ON CONSTRAINT ux_accounts_code_owner DO NOTHING;
+
+-- Rekening bank operasional (owner_ref = kode internal rekening)
+INSERT INTO ledger.accounts (code, name, type, normal_balance, owner_type, owner_ref)
+VALUES ('1200', 'Bank Operating', 'ASSET', 'DEBIT', 'BANK', 'BANK-1')
+ON CONFLICT ON CONSTRAINT ux_accounts_code_owner DO NOTHING;
