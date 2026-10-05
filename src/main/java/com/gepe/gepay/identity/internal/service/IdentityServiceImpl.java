@@ -88,7 +88,7 @@ public class IdentityServiceImpl implements IdentityApi {
     }
 
     @Override
-    @CacheEvict(cacheNames = IdentityCacheConfig.PRINCIPAL_BY_AUTH_ID, key = "result.authId()")
+    @CacheEvict(cacheNames = IdentityCacheConfig.PRINCIPAL_BY_AUTH_ID, key = "#result.authId()")
     @Transactional
     public UserResponse grantRole(GrantRoleCommand cmd, UUID grantedBy) {
         User user = findActiveUser(cmd.email());
@@ -102,7 +102,7 @@ public class IdentityServiceImpl implements IdentityApi {
     }
 
     @Override
-    @CacheEvict(cacheNames = IdentityCacheConfig.PRINCIPAL_BY_AUTH_ID, key = "result.authId()")
+    @CacheEvict(cacheNames = IdentityCacheConfig.PRINCIPAL_BY_AUTH_ID, key = "#result.authId()")
     @Transactional
     public UserResponse revokeRole(GrantRoleCommand cmd, UUID actorId) {
         User user = findActiveUser(cmd.email());
