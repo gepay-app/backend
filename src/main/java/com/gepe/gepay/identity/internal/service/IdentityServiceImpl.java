@@ -6,7 +6,6 @@ import com.gepe.gepay.identity.api.dtos.Role;
 import com.gepe.gepay.identity.api.dtos.UserPrincipal;
 import com.gepe.gepay.identity.api.dtos.UserResponse;
 import com.gepe.gepay.identity.api.dtos.UserStatus;
-import com.gepe.gepay.identity.internal.cache.PrincipalCache;
 import com.gepe.gepay.identity.internal.config.IdentityCacheConfig;
 import com.gepe.gepay.identity.internal.entity.User;
 import com.gepe.gepay.identity.internal.entity.UserRole;
@@ -16,6 +15,7 @@ import com.gepe.gepay.identity.internal.repository.UserRoleRepository;
 import com.gepe.gepay.platform.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,7 +32,6 @@ public class IdentityServiceImpl implements IdentityApi {
 
     private final UserRepository userRepository;
     private final UserRoleRepository userRoleRepository;
-    private final PrincipalCache principalCache;
 
     /** Principal apa adanya (termasuk DISABLED) — filter yang memutuskan tolak/terima. */
     @Override
@@ -89,6 +88,7 @@ public class IdentityServiceImpl implements IdentityApi {
     }
 
     @Override
+    @CacheEvict(cacheNames = IdentityCacheConfig.PRINCIPAL_BY_AUTH_ID, key = "result.authId()")
     @Transactional
     public UserResponse grantRole(GrantRoleCommand cmd, UUID grantedBy) {
         User user = findActiveUser(cmd.email());
@@ -97,12 +97,12 @@ public class IdentityServiceImpl implements IdentityApi {
             throw new ServiceException(IdentityError.ROLE_ALREADY_GRANTED, cmd.role());
         }
         userRoleRepository.save(UserRole.grant(user.getId(), internalRole, grantedBy));
-        principalCache.evict(user.getAuthId());
         log.info("Role granted: userId={}, role={}, by={}", user.getId(), cmd.role(), grantedBy);
         return toUserResponse(user);
     }
 
     @Override
+    @CacheEvict(cacheNames = IdentityCacheConfig.PRINCIPAL_BY_AUTH_ID, key = "result.authId()")
     @Transactional
     public UserResponse revokeRole(GrantRoleCommand cmd, UUID actorId) {
         User user = findActiveUser(cmd.email());
@@ -114,7 +114,6 @@ public class IdentityServiceImpl implements IdentityApi {
             throw new ServiceException(IdentityError.ROLE_NOT_GRANTED, cmd.role());
         }
         userRoleRepository.deleteByUserIdAndRole(user.getId(), internalRole);
-        principalCache.evict(user.getAuthId());
         log.info("Role revoked: userId={}, role={}, by={}", user.getId(), cmd.role(), actorId);
         return toUserResponse(user);
     }
@@ -140,6 +139,7 @@ public class IdentityServiceImpl implements IdentityApi {
     private UserResponse toUserResponse(User user) {
         return new UserResponse(
                 user.getId(),
+                user.getAuthId(),
                 user.getName(),
                 user.getEmail(),
                 mapStatus(user.getStatus()),
