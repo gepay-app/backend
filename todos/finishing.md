@@ -85,7 +85,7 @@
 ## 4. Observability & Reliability (P1)
 
 - [ ] **Structured logging** — verify JSON profile works (`SPRING_PROFILES_ACTIVE=json`)
-- [ ] **Metrics** — enable Micrometer + Prometheus (planned in agents.md §7)
+- [ ] **Metrics** — enable Micrometer + Prometheus (planned in AGENTS.md §7)
 - [ ] **Health checks** — custom `LedgerHealthIndicator` (verify DB connection, balance sanity)
 - [ ] **Circuit breaker** — Resilience4j untuk external PG calls (Midtrans, Flip)
 
@@ -93,7 +93,7 @@
 
 ## 5. Security & Compliance (P2)
 
-- [ ] **Spring Security** — add when starter ready (agents.md §1)
+- [ ] **Spring Security** — add when starter ready (AGENTS.md §1)
 - [ ] **Audit log** — immutable log untuk semua journal post (siapa, kapan, apa)
 - [ ] **PII masking** — log masking untuk `ownerRef` (userId) di production
 

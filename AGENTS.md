@@ -1,4 +1,4 @@
-# agents.md — Project Conventions (Modular Monolith, Clean Architecture)
+# AGENTS.md — Project Conventions (Modular Monolith, Clean Architecture)
 
 > This document is the single source of truth for working on this repository.
 > It is written for humans **and** AI coding agents. If a rule here contradicts

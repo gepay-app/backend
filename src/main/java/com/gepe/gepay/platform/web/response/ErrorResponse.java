@@ -5,7 +5,7 @@ import java.util.List;
 
 /**
  * Error body produced by the platform {@code GlobalExceptionHandler} for every
- * failed HTTP response (see §6 of {@code agents.md}).
+ * failed HTTP response (see §6 of {@code AGENTS.md}).
  *
  * <p>Contract:
  * <ul>

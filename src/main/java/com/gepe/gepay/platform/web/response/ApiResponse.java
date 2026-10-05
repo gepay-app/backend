@@ -3,7 +3,7 @@ package com.gepe.gepay.platform.web.response;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 /**
- * Success body envelope for HTTP responses (see §6 of {@code agents.md}).
+ * Success body envelope for HTTP responses (see §6 of {@code AGENTS.md}).
  *
  * @param message localized success message (maybe {@code null} when the
  *        endpoint has nothing meaningful to say)

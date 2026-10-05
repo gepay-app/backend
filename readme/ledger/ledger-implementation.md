@@ -1,7 +1,7 @@
 # Ledger Module — Detailed Implementation Plan
 
 > Generated from analysis of `design.md`, `example.md`, existing entities, and migrations.  
-> Follows `../../agents.md` conventions: `api`/`internal` split, `NamedInterface("api")`, module i18n, `ErrorCode` enum, `ServiceException`, `ModularityTests`.
+> Follows `../../AGENTS.md` conventions: `api`/`internal` split, `NamedInterface("api")`, module i18n, `ErrorCode` enum, `ServiceException`, `ModularityTests`.
 >
 > **Terminology**: Uses exact names from `AccountCode` enum & `design.md`:
 > - `PG_CLEARING_RECEIVABLE` (1100) — Piutang ke PG payin (uang ditangkap PG, belum settle)
@@ -1016,13 +1016,13 @@ ledgerApi.postJournal(
 
 | Rule | Reference |
 |------|-----------|
-| `api` never depends on `internal` | `../../agents.md` §2.1 |
-| DTOs = `record`, Entities = Lombok `@Getter` `@Setter` | `../../agents.md` §3 |
-| UUID v7 for user-facing IDs, BIGINT identity for internal | `../../agents.md` §3 |
-| `@Transactional` on service, not repository/controller | `../../agents.md` §3 |
-| Cache via `CacheSpec` in `internal/config`, TTL = safety net | `../../agents.md` §3, §11.2 |
-| i18n keys prefixed with `ledger.` | `../../agents.md` §6 |
-| Error enum implements `ErrorCode`, throw `ServiceException` | `../../agents.md` §6 |
+| `api` never depends on `internal` | `../../AGENTS.md` §2.1 |
+| DTOs = `record`, Entities = Lombok `@Getter` `@Setter` | `../../AGENTS.md` §3 |
+| UUID v7 for user-facing IDs, BIGINT identity for internal | `../../AGENTS.md` §3 |
+| `@Transactional` on service, not repository/controller | `../../AGENTS.md` §3 |
+| Cache via `CacheSpec` in `internal/config`, TTL = safety net | `../../AGENTS.md` §3, §11.2 |
+| i18n keys prefixed with `ledger.` | `../../AGENTS.md` §6 |
+| Error enum implements `ErrorCode`, throw `ServiceException` | `../../AGENTS.md` §6 |
 | Idempotency via `journals.idempotency_key` unique constraint | `design.md` §12.4 |
 | **Deadlock prevention: deterministic lock order + batched FOR UPDATE** | **This doc §Deadlock Prevention** |
 | Double-entry: `SUM(DEBIT) = SUM(CREDIT)` enforced in service | `design.md` §12.1 |

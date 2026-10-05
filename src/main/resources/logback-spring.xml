@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Logging configuration (see §7 of agents.md).
+  Logging configuration (see §7 of AGENTS.md).
 
   Default profile: human-readable console pattern including the MDC requestId
                    (printed as '-' outside a request scope).

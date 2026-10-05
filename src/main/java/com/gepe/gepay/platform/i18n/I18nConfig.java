@@ -18,7 +18,7 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 
 /**
  * Single aggregated {@link MessageSource} for the whole application (see §6 of
- * {@code agents.md}).
+ * {@code AGENTS.md}).
  *
  * <p>Registers one basename per folder found under the classpath directory
  * {@code i18n} — {@code i18n/<folder>/messages} — so the app-wide
@@ -32,7 +32,7 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
  * {@code messageSource} also makes Spring Boot's auto-configured validator
  * interpolate constraint messages ({@code jakarta.validation.constraints.…},
  * {@code {module.key}}) through this source with the request locale — see
- * {@code agents.md} §6.
+ * {@code AGENTS.md} §6.
  *
  * <p>Default locale is English; unknown locales fall back to the default
  * (English) bundle instead of the system locale.
@@ -40,7 +40,7 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 @Configuration
 public class I18nConfig {
 
-    /** Default-bundle file scanned per i18n folder (convention §6 of {@code agents.md}). */
+    /** Default-bundle file scanned per i18n folder (convention §6 of {@code AGENTS.md}). */
     static final String FOLDER_PATTERN = "classpath*:i18n/*/messages.properties";
 
     /**

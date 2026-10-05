@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * Registers the event-publication resubmission job on the clustered Quartz
- * scheduler (see {@code agents.md} §11.1).
+ * scheduler (see {@code AGENTS.md} §11.1).
  *
  * <p>Boot's Quartz auto-configuration picks up the {@link JobDetail} /
  * {@link Trigger} beans below and schedules them on the JDBC-clustered

@@ -22,7 +22,7 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * Cache infrastructure of the {@code platform} module (see §3 and §11.2 of
- * {@code agents.md}) — the <strong>only</strong> place where the
+ * {@code AGENTS.md}) — the <strong>only</strong> place where the
  * {@link CacheManager} and its serializers are configured.
  *
  * <p>Store is the shared Redis (never an in-process cache): every instance
@@ -44,7 +44,7 @@ import tools.jackson.databind.ObjectMapper;
  *   <li><b>key prefix</b> {@code <spring.application.name>::} keeps a shared
  *       Redis clean when several applications use the same instance;</li>
  *   <li><b>statistics</b> enabled for the actuator cache metrics once metrics
- *       are exposed (§7 of {@code agents.md}).</li>
+ *       are exposed (§7 of {@code AGENTS.md}).</li>
  * </ul>
  */
 @Configuration(proxyBeanMethods = false)
@@ -115,7 +115,7 @@ public class CacheConfig {
             Class<?> valueType = spec.isList() ? spec.elementType() : spec.valueType();
             if (valueType == null || !valueType.isRecord()) {
                 throw new IllegalArgumentException(
-                        "Cache '%s': value type must be an api DTO record (see agents.md §3), was %s"
+                        "Cache '%s': value type must be an api DTO record (see AGENTS.md §3), was %s"
                                 .formatted(spec.cacheName(), valueType));
             }
         }

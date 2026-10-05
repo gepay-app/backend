@@ -40,7 +40,7 @@ import tools.jackson.databind.exc.InvalidFormatException;
 /**
  * Single place that turns every exception surfacing from a controller (any
  * module) into the {@link ErrorResponse} envelope with localized text — see §6
- * of {@code agents.md}.
+ * of {@code AGENTS.md}.
  *
  * <p>Every failure body carries {@code code} (stable, machine-readable — it
  * always equals the resolved message key) and {@code message} (localized,

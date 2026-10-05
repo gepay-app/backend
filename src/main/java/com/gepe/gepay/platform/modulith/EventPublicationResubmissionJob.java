@@ -11,7 +11,7 @@ import org.springframework.scheduling.quartz.QuartzJobBean;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Resubmits FAILED event publications (see {@code agents.md} §11.1).
+ * Resubmits FAILED event publications (see {@code AGENTS.md} §11.1).
  *
  * <p>Complements the staleness monitor + restart republishing: publications
  * that were marked FAILED (listener crash, staleness) are re-delivered to
@@ -29,7 +29,7 @@ import lombok.extern.slf4j.Slf4j;
  * </ul>
  *
  * <p>Resubmission redelivers the event, so listeners must stay idempotent
- * (at-least-once semantics, {@code agents.md} §11).
+ * (at-least-once semantics, {@code AGENTS.md} §11).
  */
 @Slf4j
 @DisallowConcurrentExecution

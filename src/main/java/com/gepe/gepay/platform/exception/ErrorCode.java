@@ -3,7 +3,7 @@ package com.gepe.gepay.platform.exception;
 import org.springframework.http.HttpStatus;
 
 /**
- * Contract for every application error code (see §6 of {@code agents.md}).
+ * Contract for every application error code (see §6 of {@code AGENTS.md}).
  *
  * <p>Each module owns an enum implementing this interface — e.g.
  * {@code IdentityError} inside module {@code user} — where one constant bundles the

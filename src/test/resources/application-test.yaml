@@ -1,6 +1,6 @@
 # Profil `test`: nilai dev lokal yang sebelumnya datang dari `.env` (yang tidak
 # otomatis dibaca saat `./mvnw test`), supaya context-load test bisa jalan dengan
-# Postgres/Redis lokal (lihat agents.md §5). Bukan secret.
+# Postgres/Redis lokal (lihat AGENTS.md §5). Bukan secret.
 app:
   cors:
     allowed-origins: http://localhost:3000

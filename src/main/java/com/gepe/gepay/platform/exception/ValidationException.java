@@ -7,7 +7,7 @@ import lombok.Getter;
 
 /**
  * Field-level validation failure detected in the service layer (see §6 of
- * {@code agents.md}) — used when business rules reject individual fields in a
+ * {@code AGENTS.md}) — used when business rules reject individual fields in a
  * way bean validation on the request DTO cannot express.
  *
  * <p>Errors are already localized when thrown (resolved through the aggregated

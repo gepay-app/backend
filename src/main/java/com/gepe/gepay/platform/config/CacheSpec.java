@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Declaration of one application cache (see §3 of {@code agents.md}).
+ * Declaration of one application cache (see §3 of {@code AGENTS.md}).
  *
  * <p>Every cache is declared exactly once by the module that owns it, as a
  * {@code CacheSpec} bean in that module's {@code internal} code. The platform
@@ -19,7 +19,7 @@ import java.util.Objects;
  * <ul>
  *   <li>the cache value type must be an immutable API DTO {@code record} of
  *       the owning module (never an entity) — the rule "cache only read paths
- *       returning api DTO records" of {@code agents.md} §3;</li>
+ *       returning api DTO records" of {@code AGENTS.md} §3;</li>
  *   <li>one cache name holds exactly one value type; differently typed data
  *       needs a differently named cache;</li>
  *   <li>collections are declared with {@link #list(String, Duration, Class)}
@@ -28,7 +28,7 @@ import java.util.Objects;
  *
  * <p>TTL is chosen by the owning module (how stale may this data be?); the
  * cache is a safety net on top of explicit eviction — mutating operations
- * evict their caches, see {@code agents.md} §11.2.
+ * evict their caches, see {@code AGENTS.md} §11.2.
  *
  * @param cacheName  logical cache name used in {@code @Cacheable(cacheNames = …)}
  * @param ttl        time-to-live of every entry in this cache

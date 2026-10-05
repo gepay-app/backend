@@ -1,7 +1,7 @@
 package com.gepe.gepay.platform.logging;
 
 /**
- * Central SLF4J MDC keys for the application (see §7 of {@code agents.md}).
+ * Central SLF4J MDC keys for the application (see §7 of {@code AGENTS.md}).
  *
  * <p>Framework-level code (e.g. {@code CorrelationIdFilter}) writes these keys;
  * business code only reads them. Never write to the MDC without clearing it

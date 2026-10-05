@@ -3,7 +3,7 @@ package com.gepe.gepay.platform.exception;
 import lombok.Getter;
 
 /**
- * The one application exception (see §6 of {@code agents.md}).
+ * The one application exception (see §6 of {@code AGENTS.md}).
  *
  * <p>Modules throw it with one of their own {@link ErrorCode} constants and
  * optional arguments, e.g.

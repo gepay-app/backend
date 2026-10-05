@@ -19,7 +19,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
  * Correlates every log line of a request through the MDC {@code requestId} (see
- * §7 of {@code agents.md}).
+ * §7 of {@code AGENTS.md}).
  *
  * <p>Reads the inbound {@value #CORRELATION_ID_HEADER} header when present and
  * non-blank, otherwise generates a fresh {@link UUID}; stores the value in the

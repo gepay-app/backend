@@ -3,7 +3,7 @@ package com.gepe.gepay.identity.internal.entity;
 /**
  * Role internal (entity layer). Sengaja terpisah dari
  * {@code identity.api.dtos.Role} supaya {@code api} tidak pernah
- * mereferensikan tipe {@code internal} (lihat {@code agents.md} §2.1).
+ * mereferensikan tipe {@code internal} (lihat {@code AGENTS.md} §2.1).
  *
  * <p>Semua role bersifat global — tidak ada branch-scoping.
  */

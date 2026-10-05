@@ -8,7 +8,7 @@ import org.springframework.http.HttpStatus;
  * app-wide bundle {@code i18n/messages/messages*.properties}.
  *
  * <p>Module-specific errors must live in their own module-scoped enums
- * implementing {@link ErrorCode} (see §6 of {@code agents.md}); this enum only
+ * implementing {@link ErrorCode} (see §6 of {@code AGENTS.md}); this enum only
  * hosts codes that are genuinely cross-cutting (database conflicts, system
  * failures, …).
  */

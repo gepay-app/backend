@@ -6,7 +6,7 @@ batasnya **ditegakkan mesin** (bukan sekadar konvensi), lengkap dengan
 fondasi platform (error-handling terpusat, i18n, logging terstruktur) dan
 **siap berjalan multi-instance**.
 
-> Dokumen konvensi lengkap (normatif): **[`agents.md`](agents.md)** — baca
+> Dokumen konvensi lengkap (normatif): **[`AGENTS.md`](AGENTS.md)** — baca
 > sebelum menambah modul. README ini hanya pintu masuk cepat.
 
 ## Isi starter
@@ -16,7 +16,7 @@ fondasi platform (error-handling terpusat, i18n, logging terstruktur) dan
   `@Transactional`, controller `/api/v1/users`, read path di-cache Redis
   (`@Cacheable` + `@CacheEvict`), event domain + listener AFTER_COMMIT, error
   enum modul, bundle i18n milik modul (English + Indonesia), migrasi Flyway.
-  Salin pola ini untuk modul berikutnya (lihat `agents.md` §9).
+  Salin pola ini untuk modul berikutnya (lihat `AGENTS.md` §9).
 - **Modul `platform`** (shared, OPEN): envelope API
   `{message, data}` / `{code, message, errors}`, `GlobalExceptionHandler`,
   `ErrorCode` + `ServiceException`, agregasi `MessageSource` per-folder i18n
@@ -43,7 +43,7 @@ fondasi platform (error-handling terpusat, i18n, logging terstruktur) dan
 ## Menjalankan
 
 Prasyarat: PostgreSQL dan Redis yang bisa diakses (repo ini sengaja **tidak**
-berisi `compose.yaml` — infrastruktur dikelola di luar repo, lihat `agents.md`
+berisi `compose.yaml` — infrastruktur dikelola di luar repo, lihat `AGENTS.md`
 §5). Default lokal: `localhost:5432` db `gepay` user/password
 `root`/`root`, dan `localhost:6379` user/password `root`/`root` — semua bisa
 di-override lewat env `SPRING_*` (lihat `.env` sebagai contoh, jangan commit
@@ -83,7 +83,7 @@ Postgres/Redis yang sama:
 ./mvnw spring-boot:run -Dspring-boot.run.arguments=--server.port=8081
 ```
 
-Jaminan (detail & aturan normatif di `agents.md` §11):
+Jaminan (detail & aturan normatif di `AGENTS.md` §11):
 
 - **Quartz clustered**: trigger hanya dijalankan satu instance (JDBC store
   + `isClustered`, `acquireTriggersWithinLock`).
@@ -116,7 +116,7 @@ Jaminan (detail & aturan normatif di `agents.md` §11):
    migrasi Flyway bila ada tabel baru.
 5. `./mvnw test` — `ModularityTests` wajib hijau.
 
-Pola lengkap: salin modul `user`. Konvensi detail: `agents.md` §2, §9.
+Pola lengkap: salin modul `user`. Konvensi detail: `AGENTS.md` §2, §9.
 
 ## Peta direktori
 
@@ -137,5 +137,5 @@ src/main/resources/
 
 `platform/persistence` (BaseEntity + audit), contoh Quartz job bisnis lain,
 pola pagination standar, `Dockerfile`, metrics Prometheus & tracing OTel
-(lihat `agents.md` §7), Spring Security (starter terpisah). Semua tercatat
-eksplisit di `agents.md`.
+(lihat `AGENTS.md` §7), Spring Security (starter terpisah). Semua tercatat
+eksplisit di `AGENTS.md`.

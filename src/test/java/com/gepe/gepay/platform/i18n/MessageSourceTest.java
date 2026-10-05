@@ -13,7 +13,7 @@ import org.springframework.context.i18n.LocaleContextHolder;
 
 /**
  * Behavior tests for the aggregated {@link MessageSource} (see §6 and §8 of
- * {@code agents.md}): folder discovery, English resolution, argument
+ * {@code AGENTS.md}): folder discovery, English resolution, argument
  * interpolation, fallback to English for unsupported locales, and the
  * {@link MessageHelper} fallback for missing keys.
  *

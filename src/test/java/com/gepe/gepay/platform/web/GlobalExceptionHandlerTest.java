@@ -54,7 +54,7 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
- * Behavior tests for {@link GlobalExceptionHandler} (see §8 of {@code agents.md}):
+ * Behavior tests for {@link GlobalExceptionHandler} (see §8 of {@code AGENTS.md}):
  * end-to-end scenarios through standalone MockMvc and direct handler calls for
  * the mappings that need no servlet flow. All assertions check status code and
  * the localized error envelope — never implementation internals.

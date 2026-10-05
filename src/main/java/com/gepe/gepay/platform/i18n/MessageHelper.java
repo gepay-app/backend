@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
  * ({@link LocaleContextHolder}); when no locale is bound (non-web code) the
  * aggregated source falls back to the configured default locale (English). A
  * missing key never throws — it is logged and the key itself is returned,
- * which surfaces typos quickly during development (see §6 of {@code agents.md}).
+ * which surfaces typos quickly during development (see §6 of {@code AGENTS.md}).
  */
 @Component
 @Slf4j

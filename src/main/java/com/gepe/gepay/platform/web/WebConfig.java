@@ -9,7 +9,7 @@ import org.springframework.web.servlet.LocaleResolver;
 import org.springframework.web.servlet.i18n.AcceptHeaderLocaleResolver;
 
 /**
- * Web configuration of the {@code platform} module (see §2.4 of {@code agents.md}).
+ * Web configuration of the {@code platform} module (see §2.4 of {@code AGENTS.md}).
  *
  * <p>Locale policy (see §6): the language comes from the {@code Accept-Language}
  * header restricted to the configured supported locales; the default is English,
