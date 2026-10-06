@@ -63,8 +63,8 @@ ledgerApi.postJournal("PAYMENT:PAY-1:PAID", JournalReferenceType.PAYMENT, "PAY-1
 
 ## J-2: Settlement Confirmed (PG → Bank Platform)
 
-**Kasus**: Midtrans settlement Rp 100.000 terkonfirmasi (laporan diterima) dan dana
-masuk ke rekening bank platform (`settlement_target = BANK`).
+**Kasus**: Dana Rp 100.000 dari Midtrans terkonfirmasi masuk rekening bank platform
+(laporan/mutasi diterima; `settlement_target = BANK`).
 
 | # | AccountCode | OwnerRef | Direction | Amount |
 |---|-------------|----------|-----------|--------|
@@ -105,7 +105,7 @@ List<JournalLine> lines = List.of(
     new JournalLine(AccountCode.CREATOR_PAYABLE_AVAILABLE, "USER-123", EntryDirection.CREDIT, 93_340)
 );
 
-ledgerApi.postJournal("SETTLEMENT:SET-1:RELEASE", JournalReferenceType.SETTLEMENT, "SET-1",
+ledgerApi.postJournal("SETTLEMENT:SET-1:RELEASE:USER-123", JournalReferenceType.SETTLEMENT, "SET-1",
     "Release creator funds for settlement SET-1", settledAt, lines, null);
 ```
 
@@ -279,7 +279,7 @@ ledgerApi.postJournal("ADJUSTMENT:ADJ-1", JournalReferenceType.ADJUSTMENT, "ADJ-
 
 ## J-11: Chargeback (Kerugian)
 
-**Kasus**: Chargeback dari Midtrans Rp 100.000 (sudah settle). Creator sudah withdraw.
+**Kasus**: Chargeback dari Midtrans Rp 100.000 (transaksi sudah `PAID` dan dananya sudah cair). Creator sudah withdraw.
 
 | # | AccountCode | OwnerRef | Direction | Amount |
 |---|-------------|----------|-----------|--------|

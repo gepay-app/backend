@@ -65,8 +65,8 @@ Setiap akun diwakili oleh enum `AccountCode` yang menyimpan metadata resmi (Kode
 
 | AccountCode | Kode | Tipe | Normal | OwnerType | Keterangan / Fungsi |
 |-------------|------|------|--------|-----------|---------------------|
-| `PG_CLEARING_RECEIVABLE` | `1100` | ASSET | DEBIT | `PAYMENT_PROVIDER` | Piutang ke PG payin (uang ditangkap PG, belum settle ke bank kita) |
-| `PAYIN_PROVIDER_BALANCE` | `1150` | ASSET | DEBIT | `PAYMENT_PROVIDER` | Saldo platform di akun PG payin (sudah settle, belum ditarik ke bank) |
+| `PG_CLEARING_RECEIVABLE` | `1100` | ASSET | DEBIT | `PAYMENT_PROVIDER` | Piutang ke PG payin (uang ditangkap PG, belum masuk bank kita) |
+| `PAYIN_PROVIDER_BALANCE` | `1150` | ASSET | DEBIT | `PAYMENT_PROVIDER` | Uang di saldo akun PG payin (sudah masuk saldo PG, belum ditarik ke bank) |
 | `BANK_OPERATING` | `1200` | ASSET | DEBIT | `BANK` | Rekening bank operasional utama platform |
 | `PAYOUT_PROVIDER_FLOAT` | `1300` | ASSET | DEBIT | `PAYOUT_PROVIDER` | Float dana di payout provider (Flip) siap disburse |
 | `FUND_TRANSFER_IN_TRANSIT` | `1400` | ASSET | DEBIT | `null` (Global) | Dana transit saat transfer antar provider/rekening |
@@ -194,7 +194,7 @@ Saat settlement dari PG terkonfirmasi, ubah hak creator dari **Pending** menjadi
 
 ```java
 public void releaseCreatorFunds(String settlementId, String creatorUserId, long amount, Instant settledAt) {
-    String idemKey = "SETTLEMENT:" + settlementId + ":RELEASE";
+    String idemKey = "SETTLEMENT:" + settlementId + ":RELEASE:" + creatorUserId;
 
     List<JournalLine> lines = List.of(
         // DEBIT: Creator Payable Pending (Kurangi pending)

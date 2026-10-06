@@ -1,7 +1,7 @@
 # Manual Settlement — Panduan Operasional (Admin)
 
 > Pendamping [`payment-design.md`](./payment-design.md) §5. Menjelaskan **apa yang
-> admin lakukan** untuk "men-settle" dana Midtrans → rekening bank, **kenapa CSV
+> admin lakukan** untuk memindahkan dana Midtrans → rekening bank, **kenapa CSV
 > harian tidak cukup**, dan **jurnal apa yang diposting**.
 >
 > Bingung istilah? [Glosarium](../glossary.md), terutama
@@ -14,34 +14,40 @@
 
 ## 0. TL;DR
 
-- `settlement` di Midtrans = **uang sudah masuk saldo Midtrans kita**, **bukan**
-  uang sudah di rekening bank dan **bukan** penanda "sudah bisa di-withdraw".
-- **CSV harian hanya berisi daftar transaksi yang settled** — tidak ada kolom
-  "withdrawable". Jadi CSV dipakai untuk **keanggotaan** (order mana), bukan untuk
-  memutuskan cair/tidak.
-- Penentu "benar-benar cair" = **mutasi bank** (dan/atau instruksi pencairan MAP).
-  Batch settlement **hanya dikonfirmasi** kalau bukti dana masuk sudah ada.
-- Admin **membuat 1 batch `settlements` per provider per pencairan**, meng-match
-  `Order ID` (= `payment_attempts.provider_reference_id`), mengisi nominal bukti,
-  konfirmasi → sistem posting **J-2** (dana ke bank) + **J-3** (creator
+- Di Midtrans, `Status = settlement` hanya berarti **uang sudah masuk saldo
+  Midtrans**; kita mencatatnya sebagai **`PAID`**. Itu **bukan** "uang sudah di
+  rekening bank" dan **bukan** "sudah bisa ditarik". Karena itu **jangan** memakai
+  kata "settled" untuk status PG ini.
+- Di aplikasi, **settled** punya tepat satu arti: transaksi sudah masuk batch
+  settlement yang `CONFIRMED`, sehingga hak creator `PENDING → AVAILABLE` dan
+  **bisa ditarik**.
+- Penentu "benar-benar cair" = **mutasi bank** (dan/atau instruksi pencairan dari
+  MAP). Batch settlement **hanya dikonfirmasi** kalau bukti dana masuk sudah ada.
+- Pencairan dari PG adalah **aksi admin**: uang riil keluar dari saldo PG ke
+  rekening bank. Karena itu wajar dan memang **harus** dijalankan admin/ops.
+- Tapi **memilih transaksi tidak manual**: sistem memilihnya otomatis by rule
+  (§5.3), lalu admin memverifikasi **satu angka total** terhadap mutasi bank.
+- Beban admin sebanding dengan **jumlah pencairan**, bukan jumlah transaksi: satu
+  pencairan = satu batch, walau transaksinya ratusan ribu (§5.8).
+- Konfirmasi batch → sistem posting **J-2** (dana ke bank) + **J-3** (creator
   `PENDING → AVAILABLE`).
 
 ---
 
-## 1. Tiga status yang sering dicampur
+## 1. Tiga konsep yang sering dicampur
 
-| # | Status | Arti | Sumber sinyal | Disimpan di |
+| # | Konsep | Arti | Sumber sinyal | Disimpan di |
 |---|--------|------|---------------|-------------|
-| A | **Paid / Settled di PG** | uang diterima PG, PG berutang ke kita | webhook `settlement` **atau** CSV harian | `payments.status=PAID`, `paid_at` |
-| B | **Withdrawable di PG** | saldo PG sudah boleh ditarik ke bank | dashboard MAP ("Withdrawable balance") / laporan disbursement | tidak ada kolom eksplisit (lihat §3) |
+| A | **PAID** (Midtrans `settlement`) | uang diterima PG, PG berutang ke kita | webhook `settlement` **atau** CSV harian | `payments.status=PAID`, `paid_at` |
+| B | **Withdrawable di PG** | saldo PG sudah boleh ditarik ke bank | dashboard MAP ("Withdrawable balance") | tidak ada kolom (lihat §3) |
 | C | **Cash in bank** | uang benar-benar ada di rekening bank | mutasi bank | `settlements.actual_amount`, `actual_settled_at` |
 
-**Aturan**: batch settlement (dan jurnal J-2/J-3) **hanya** dipicu oleh status **C**,
-yaitu saat admin punya bukti dana masuk. Status A/B dipakai untuk memantau dan
-memilih kandidat.
+**Aturan**: batch settlement (dan jurnal J-2/J-3) **hanya** dipicu saat konsep **C**
+(bukti dana masuk). A dan B dipakai untuk memantau dan memilih transaksi.
 
-> Midtrans memakai kata `settlement` untuk status **A**. Jangan samakan dengan
-> settlement kita (= C).
+> Midtrans memakai kata `settlement` untuk konsep **A**. Jangan disamakan dengan
+> "settled"-nya kita (= **C**). Di dokumen ini status Midtrans selalu ditulis dalam
+> backtick (`settlement`) supaya jelas itu istilah vendor.
 
 ---
 
@@ -51,11 +57,13 @@ memilih kandidat.
 |--------|--------------|--------------------|
 | CSV harian (Balance transaction report) | `Order ID`, `Amount`, `Total Fee`, `Status=settlement`, `Settlement time` | withdrawable/pending, nominal yang benar-benar masuk bank |
 | Dashboard MAP / disbursement report | withdrawable vs pending withdrawable, nominal pencairan | daftar order detail (kecuali disediakan) |
-| Mutasi bank | nominal cash ribuan/akurat + tanggal | order mana yang tercakup (harus di-match) |
+| Mutasi bank | nominal cash akurat + tanggal | order mana yang tercakup (harus di-match) |
 
-Kesimpulan: **keanggotaan** (order mana) dan **nominal cash** (berapa) datang dari
-dua sumber berbeda. Itulah alasan batch `settlements` punya `expected_amount`
-(Σ kandidat) **dan** `actual_amount` (bukti), plus `variance_amount`.
+Kesimpulan: **daftar transaksi yang tercakup** (order mana) dan **nominal cash**
+(berapa) datang dari dua sumber berbeda. CSV/report menjawab "order mana yang sudah
+`PAID` di PG" — **bukan** "mana yang sudah cair di bank". Itulah alasan batch
+`settlements` punya `expected_amount` (Σ transaksi yang dipilih) **dan**
+`actual_amount` (bukti), plus `variance_amount`.
 
 ---
 
@@ -71,7 +79,8 @@ Dari CSV contoh (ringkas):
 | 2026-10-05 18:45 | `order1` | 20.000 | -4.440 | settlement | 2026-10-05 18:45 |
 | 2026-10-05 18:41 | `order14` | 20.000 | -4.440 | settlement | 2026-10-05 18:43 |
 
-Semua baris berstatus `settlement`, **tidak ada** bedanya di CSV. Padahal menurut MAP:
+Semua baris berstatus `settlement` (artinya: sudah **PAID** di PG), **tidak ada**
+bedanya di CSV. Padahal menurut MAP:
 
 - 4 transaksi **5 Okt** → sudah **Withdrawable balance**.
 - 1 transaksi **6 Okt** (`order3`) → masih **Pending withdrawable**.
@@ -84,7 +93,8 @@ Semua baris berstatus `settlement`, **tidak ada** bedanya di CSV. Padahal menuru
 Jadi status withdrawable **tidak bisa diturunkan dari CSV**. Yang membedakan adalah
 waktu: transaksi 5 Okt sudah lewat cut-off pencairan, yang 6 Okt belum. Itu pula
 sebabnya `channel_routes.settlement_delay_days` (T+n) tetap ada: ia **memperkirakan**
-kapan transaksi menjadi withdrawable, untuk keperluan monitor — **bukan** pemicu jurnal.
+kapan transaksi menjadi withdrawable — dipakai untuk monitor OVERDUE dan untuk rule
+auto-match (§5.3) — **bukan** pemicu jurnal.
 
 > **Catatan konfigurasi**: contoh di atas berarti transaksi 5 Okt withdrawable pada
 > 6 Okt, sedangkan 6 Okt belum → aturan withdrawable MAP di akun ini ≈ **T+1 hari
@@ -119,18 +129,35 @@ Hubungan: 1 `payment` = 1 batch (`payments.settlement_id`), tanpa tabel item.
 - Webhook `PAYMENT_PAID` sudah jalan → `payments.status = PAID`, `paid_at`,
   `expected_settlement_date` terisi (`paid_at + T+n` hari kerja) → **J-1** sudah
   terposting, creator masih `CREATOR_PAYABLE_PENDING`.
-- Kalau ada transaksi settled di CSV yang webhook-nya tidak masuk, lakukan
+- Kalau ada transaksi `PAID` di CSV yang webhook-nya tidak masuk, lakukan
   rekonsiliasi order (tandai PAID) **sebelum** masuk langkah berikut.
 
 ### 5.2 Kapan mulai settlement
-Saat di MAP dana **sudah withdrawable** dan admin **mencairkan ke rekening bank**.
-Setelah dana masuk (mutasi bank), barulah buat & konfirmasi batch.
+Saat di MAP dana **sudah withdrawable** dan admin **mencairkan ke rekening bank**
+(aksi admin; bisa full sweep atau sebagian, lihat §5.7). Setelah dana masuk (mutasi
+bank), barulah buat & konfirmasi batch.
 
-### 5.3 Buat batch — dua mode membership
+### 5.3 Buat batch — pilih transaksi otomatis (default)
 
-**Mode A — pilih order eksplisit (paling aman/kontrol penuh)**
-1. Ambil daftar `Order ID` dari sumber pencairan (mis. daftar transaksi pada
-   disbursement MAP, atau hasil pilih manual dari CSV).
+**Default / steady state — auto-match by rule.** Admin **tidak** menunjuk order.
+
+1. Admin cukup mencatat pencairan: provider, nominal bukti (`actual_amount`),
+   tanggal, evidence, dan periode/cutoff.
+2. Sistem memilih **semua** transaksi yang memenuhi:
+   - `payments.provider_id = batch.provider_id`
+   - `payments.status = 'PAID'`
+   - `payments.settlement_id IS NULL`
+   - `payments.expected_settlement_date <= :cutoff` (cutoff = tanggal withdrawable)
+3. `expected_amount` = Σ `payments.expected_settlement_amount` dari transaksi itu.
+4. Pakai index `ix_payments_unsettled`.
+
+Ini satu operasi **set-based** (query/`UPDATE ... WHERE rule`), jadi jumlah baris
+tidak masalah: satu pencairan tetap satu batch. Lihat §5.8.
+
+**Pengecualian — daftar order eksplisit.** Dipakai **hanya** kalau PG mencairkan
+sebagian (bukan full sweep) atau tidak FIFO, misalnya dari disbursement report.
+
+1. Ambil daftar `Order ID` dari sumber pencairan.
 2. `POST /api/v1/settlements`:
    ```json
    {
@@ -139,7 +166,7 @@ Setelah dana masuk (mutasi bank), barulah buat & konfirmasi batch.
      "actualAmount": 62240,
      "actualSettledAt": "2026-10-06T10:00:00+07:00",
      "evidenceSource": "BANK_STATEMENT",
-     "evidenceReference": "BCA/2026-10-06/…”,
+     "evidenceReference": "BCA/2026-10-06/…",
      "periodStart": "2026-10-05",
      "periodEnd": "2026-10-06",
      "orderIds": ["order1", "order2", "order14", "01a10c58-…-88f6927869bd"]
@@ -148,22 +175,16 @@ Setelah dana masuk (mutasi bank), barulah buat & konfirmasi batch.
 3. Sistem mencari `payment_attempts.provider_reference_id IN orderIds`, memfilter
    `payments.status=PAID AND payments.settlement_id IS NULL AND provider=MIDTRANS`.
 
-**Mode B — auto-match kandidat (by rule)**
-1. Admin tidak memilih order; sistem memilih kandidat yang memenuhi:
-   - `payments.provider_id = batch.provider_id`
-   - `payments.status = 'PAID'`
-   - `payments.settlement_id IS NULL`
-   - `payments.expected_settlement_date <= :cutoff` (cutoff = tanggal withdrawable)
-2. Pakai index `ix_payments_unsettled`.
-3. Cocok untuk rutin harian/mingguan ketika T+n sudah akurat.
+> **Rekomendasi**: pakai **full sweep** setiap kali mencairkan (§5.7) supaya daftar
+> transaksi deterministik dan admin tidak pernah perlu menunjuk order. Mode daftar
+> eksplisit adalah fallback, bukan jalur utama.
 
-> **Jangan** memakai Mode B dengan `cutoff = hari ini` kalau T+n belum akurat —
-> bisa meng-*release* dana creator lebih cepat dari uang masuk bank. Cara
-> mencocokkan lump-sum withdrawal dengan daftar transaksi (cutoff vs `paid_at`)
-> dijelaskan di §5.7.
+> **Jangan** memakai cutoff = hari ini kalau T+n belum akurat — bisa me-*release*
+> dana creator lebih cepat dari uang masuk bank. Cara mencocokkan pencairan lump-sum
+> dengan ledger: §5.7.
 
 ### 5.4 Verifikasi sebelum konfirmasi
-- `expected_amount` = Σ `payments.expected_settlement_amount` dari kandidat.
+- `expected_amount` = Σ `payments.expected_settlement_amount` dari transaksi terpilih.
 - Bandingkan dengan `actual_amount` (mutasi bank). Selisih = `variance_amount`.
 - Jika selisih ≠ 0 karena **fee PG** (lihat §7), jangan asal timpa ke variance.
 
@@ -171,7 +192,8 @@ Setelah dana masuk (mutasi bank), barulah buat & konfirmasi batch.
 - `POST /api/v1/settlements/{id}/confirm`:
   - set `status=CONFIRMED`, `actual_amount`, `actual_settled_at`, `variance_amount`;
   - set `payments.settlement_id = batch.id`, `payments.settled_at`;
-  - posting **J-2** lalu **J-3** per payment (via `LedgerApi.postJournal`, idempoten).
+  - posting **J-2** (per batch) lalu **J-3** (per creator) via
+    `LedgerApi.postJournal`, idempoten.
 
 ### 5.6 Sesudahnya
 - Payment yang tidak ikut batch tetap `PAID` dan muncul di monitor OVERDUE.
@@ -179,11 +201,11 @@ Setelah dana masuk (mutasi bank), barulah buat & konfirmasi batch.
 
 ---
 
-### 5.7 Menentukan membership saat withdraw itu lump sum (cutoff, bukan `paid_at`)
+### 5.7 Full sweep vs withdraw sebagian (cutoff, bukan `paid_at`)
 
 Kasusnya: admin withdraw dari PG dan dapat **satu angka** (mis. Rp30.000), sementara
-di aplikasi ada mis. 10 transaksi `PAID`. Kuncinya: **yang menentukan keanggotaan
-adalah batas withdrawable, bukan `paid_at` mentah**. `paid_at` hanya dasar
+di aplikasi ada mis. 10 transaksi `PAID`. Kuncinya: **yang menentukan transaksi mana
+yang ikut adalah batas withdrawable, bukan `paid_at` mentah**. `paid_at` hanya dasar
 perhitungan T+n; yang dipakai memfilter adalah `expected_settlement_date`.
 
 Contoh (cutoff = 6 Okt, semua creator beda-beda nominal):
@@ -200,14 +222,16 @@ konfirmasi batch berisi `order1`+`order2`. `order3` menunggu batch berikutnya.
 Aturan praktis:
 
 1. **Selalu sweep seluruh withdrawable balance** (jangan withdraw sebagian). Kalau
-   full sweep, membership = *semua* transaksi `PAID`, provider cocok,
-   `settlement_id IS NULL`, dan `expected_settlement_date <= cutoff`. Maka
-   Σ `expected_settlement_amount` **harus** = angka withdraw. Deterministik.
+   full sweep, transaksi yang ikut = *semua* transaksi `PAID`, provider cocok,
+   `settlement_id IS NULL`, dan `expected_settlement_date <= cutoff`. Maka Σ
+   `expected_settlement_amount` **harus** = angka withdraw. Deterministik, tanpa
+   perlu memilih order.
 2. Kalau **Σ ≠ angka withdraw**, jangan asal pilih yang kira-kira. Cek berurutan:
    - cutoff meleset 1 hari (libur/Sabtu-Minggu/T+n salah) → geser cutoff;
-   - ada transaksi settled di CSV tapi belum `PAID` (webhook tidak masuk) → rekonsiliasi dulu;
+   - ada transaksi `PAID` di CSV tapi belum `PAID` di aplikasi (webhook tidak masuk)
+     → rekonsiliasi dulu;
    - fee PG: pastikan charge pakai `gross_amount = gross + pg_fee` (§7), kalau tidak
-     yang masuk bank net dan selisihnyabukan variance;
+     yang masuk bank net dan selisihnya bukan variance;
    - withdraw sebagian → minta daftar transaksi dari disbursement report provider.
 3. **Hindari** mencocokkan dengan cara FIFO "akumulasi sampai pas" kalau bisa.
    Itu heuristik rapuh: kalau provider tidak mencairkan FIFO, atau ada hold, kamu
@@ -219,14 +243,55 @@ Aturan praktis:
    urutan di laporan provider.
 
 > Kesimpulan: bank mutation = **nominal**; cutoff (`expected_settlement_date`) =
-> **keanggotaan**. Dua-duanya harus ketemu supaya `variance_amount = 0`.
+> **transaksi mana yang ikut**. Dua-duanya harus ketemu supaya `variance_amount = 0`.
+
+---
+
+### 5.8 Skala: ratusan ribu transaksi tidak menambah kerja admin
+
+Kekhawatiran yang wajar: "kalau settled harus manual, bagaimana kalau ada ratusan
+ribu transaksi?" Jawabannya: **yang besar adalah jumlah transaksi, bukan jumlah
+batch**. Admin tidak pernah menyentuh transaksi satu per satu.
+
+| Hal | Skala |
+|-----|-------|
+| Pencairan dari PG (aksi admin + mutasi bank) | beberapa per hari/minggu |
+| Batch `settlements` | **1 per pencairan**, bukan per transaksi |
+| Pemilihan transaksi | 1 query/`UPDATE` set-based (`WHERE <rule>`) |
+| Verifikasi admin | 1 angka: `expected_amount` vs `actual_amount` |
+| Posting jurnal | J-2 **1 per batch**; J-3 **per creator** (bisa di-chunk) |
+
+Jadi kerja admin per pencairan tetap: "apakah total yang masuk bank = total yang
+sistem hitung?" Tidak ada pemilihan per-transaksi.
+
+Catatan implementasi (Milestone 3):
+
+- `UPDATE payment.payments SET settlement_id=…, settled_at=… WHERE <rule>` adalah
+  operasi set-based; aman untuk ratusan ribu baris. Bisa di dalam transaksi batch
+  yang sama, atau di-chunk per rentang.
+- **J-3 per creator**: jumlah creator bisa besar. Karena `journals.idempotency_key`
+  unik, satu J-3 per creator **tidak boleh** memakai key yang sama. Gunakan key
+  per creator, mis. `SETTLEMENT:{settlementId}:RELEASE:{userId}`, atau tinjau
+  agregasi release di ledger. Putuskan sebelum implementasi.
+- Bila perlu, pecah pekerjaan release menjadi beberapa "shard" per provider/periode;
+  `external_settlement_id` tetap satu sehingga audit tetap satu batch.
+- **Ingest report PG** (adapter `evidence_source=REPORT_FILE`) dapat membuat batch
+  `PENDING` otomatis (isi `external_settlement_id`, periode, nominal). Admin lalu
+  hanya mengonfirmasi. Contoh CSV Midtrans sudah memuat `Order ID`, `Total Fee`, dan
+  `Settlement time` untuk mengisi `pg_fee_amount` dan mendeteksi order yang webhook-nya
+  tidak masuk.
+
+> Prinsip audit bersih: **apapun cara PG mencairkan**, ledger hanya bergerak saat
+> batch `CONFIRMED` dengan bukti. Invariant yang dijaga: `actual_amount =
+> expected_amount + variance_amount`, dan setiap batch punya `evidence_source` +
+> `evidence_reference`.
 
 ---
 
 ## 6. Jurnal yang diposting
 
 Notasi: amount bulat IDR. Idempotency key: `SETTLEMENT:{settlementId}:CONFIRMED`
-(J-2) dan `SETTLEMENT:{settlementId}:RELEASE` (J-3). Lihat
+(J-2) dan `SETTLEMENT:{settlementId}:RELEASE:{creatorUserId}` (J-3). Lihat
 [`../ledger/ledger-example.md`](../ledger/ledger-example.md) J-2 & J-3.
 
 ### J-2 — dana PG → bank platform (per batch)
@@ -242,6 +307,9 @@ Kalau `settlement_target = PROVIDER_BALANCE`, debit-nya `PAYIN_PROVIDER_BALANCE`
 DEBIT   CREATOR_PAYABLE_PENDING   (2100, USER)   Σ net creator (creator itu)
 CREDIT  CREATOR_PAYABLE_AVAILABLE (2110, USER)   Σ net creator (creator itu)
 ```
+
+> Satu batch bisa memuat banyak creator. Karena idempotency key J-3 harus unik per
+> jurnal, key per creator perlu disuffiks `:{userId}` (lihat §5.8).
 
 Untuk batch 4 transaksi di atas, misal tiap donasi 20.000 dengan net creator
 17.780 (platform fee 2.000 + PPN 220) dan semuanya creator sama:
@@ -265,7 +333,7 @@ Contoh untuk donasi 20.000:
 gross (donasi)            = 20.000
 pg_fee = 4.000 + PPN 11%  =  4.440   (4.000 + 440; PPN = 11%, bukan 4%)
 total_charged (donatur)   = 24.440   (inilah gross_amount yang dikirim ke Midtrans)
-yang settle ke platform   = 20.000   (Midtrans ambil 4.440)
+yang masuk saldo platform = 20.000   (Midtrans ambil 4.440)
 ```
 
 Konsekuensi:
@@ -297,7 +365,7 @@ Checklist produksi:
 
 Prinsip: **satu batch = satu provider = satu bukti**. Tidak ada batch campur PG.
 
-1. **Filter wajib**: semua query kandidat & pencarian `Order ID` difilter
+1. **Filter wajib**: semua query transaksi & pencarian `Order ID` difilter
    `provider_id`. `provider_reference_id` unik per `(channel_route_id, …)`, jadi
    aman dipakai lintas PG.
 2. **Rute & aturan beda**: `settlement_delay_days` dan `settlement_target` per
@@ -309,8 +377,9 @@ Prinsip: **satu batch = satu provider = satu bukti**. Tidak ada batch campur PG.
 4. **Bank account**: pastikan `settlement_target`/rekening bank per provider jelas
    (mis. satu rekening operasional menerima banyak PG, atau rekening terpisah).
 5. **Reconciliation**: jalankan `reconciliation_runs` per provider (mis.
-   bandingkan Σ order yang kita matching vs laporan PG) untuk mendeteksi order yang
-   tidak pernah tercairkan.
+   bandingkan Σ order yang kita match vs laporan PG) untuk mendeteksi order yang
+   tidak pernah tercairkan — ini yang menjaga audit tetap bersih ketika cara PG
+   berbeda-beda.
 
 ---
 
@@ -330,11 +399,13 @@ Belum diimplementasikan (ada di [`todo.md`](./todo.md) Milestone 3/5):
 
 - `SettlementRepository`, `SettlementService`, endpoint admin, auto-match, job OVERDUE.
 - **Ingest CSV** (parsing `Order ID`, `Amount`, `Total Fee`, `Settlement time`) untuk
-  mem-verifikasi/mengisi `pg_fee_amount` dan mendeteksi order yang belum PAID.
+  mem-verifikasi/mengisi `pg_fee_amount` dan mendeteksi order yang belum `PAID` —
+  **bukan** untuk memilih order per transaksi.
 - **Pastikan charge memakai `gross_amount = gross + pg_fee`** (fee ditanggung
   donatur, §7) — kalau tidak, MAP net dan nominal `expected_settlement_amount`
   tidak cocok.
 - Penyesuaian `settlement_delay_days` agar sesuai aturan withdrawable MAP.
+- Strategi J-3 saat jumlah creator besar (key per creator / chunking, §5.8).
 - Opsional: simpan `Settlement time` per transaksi (mis. `payment_attempts.settled_at`
   / `payments.settled_at` dari report) supaya withdrawable bisa dihitung tepat,
   bukan sekadar T+n dari `paid_at`.

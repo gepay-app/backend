@@ -259,11 +259,11 @@ ON CONFLICT ON CONSTRAINT ux_holidays_date DO NOTHING;
 -- PAYMENT — settlement (BATCH header; dibuat dari BUKTI, bukan webhook PG)
 -- =====================================================================
 
--- Header satu batch pencairan dana dari PG ke platform (mis. satu laporan
--- settlement Midtrans / satu mutasi bank). Bukti keanggotaan datang dari
--- CSV/report (match order_id), bukti nominal datang dari mutasi bank / konfirmasi
--- MAP. Tidak ada webhook PG yang bisa membuktikan "dana sudah cair" untuk
--- Midtrans, jadi batch selalu dibuat manusia/bukti.
+-- Header satu batch pencairan dana dari PG ke platform (mis. satu pencairan
+-- Midtrans / satu mutasi bank). Transaksi yang tercakup dipilih otomatis by rule
+-- (fallback: match order_id dari CSV/report), bukti nominal datang dari mutasi bank
+-- / konfirmasi MAP. Tidak ada webhook PG yang bisa membuktikan "dana sudah cair"
+-- untuk Midtrans, jadi batch selalu dibuat manusia/bukti.
 CREATE TABLE payment.settlements
 (
     id                      UUID PRIMARY KEY,

@@ -46,7 +46,7 @@
 **Hasil**: admin input bukti → batch terkonfirmasi → saldo creator `PENDING → AVAILABLE`.
 
 1. `SettlementRepository`, `SettlementService`.
-2. Endpoint admin (SUPER_ADMIN): `POST /api/v1/settlements` (buat batch: provider, actual, evidence, periode/CSV order_id) + auto-match kandidat (payment `PAID`, provider cocok, belum ada `settlement_id`, `expected_settlement_date ≤ cutoff`).
+2. Endpoint admin (SUPER_ADMIN): `POST /api/v1/settlements` — buat batch dari bukti (provider, `actual_amount`, evidence, periode). **Default**: auto-match by rule (payment `PAID`, provider cocok, belum ada `settlement_id`, `expected_settlement_date ≤ cutoff`); transaksi **tidak** dipilih manual. Opsi `orderIds` hanya fallback untuk withdraw sebagian.
 3. `POST /api/v1/settlements/{id}/confirm` — set `CONFIRMED` + `actual_amount` + `variance`, posting **J-2** (dana ke bank) lalu **J-3** (release per creator).
 4. Job Quartz `OverdueSettlement` (monitor: payment `PAID` lewat `expected_settlement_date` belum ter-settle → alert, **tanpa jurnal**).
 5. Test: match & variance, confirm idempoten, saldo ledger benar.
@@ -90,4 +90,9 @@
   masuk. Basis nominal sudah final: **fee PG ditanggung donatur** (§7), jadi
   charge wajib memakai `gross_amount = gross + pg_fee`.
 - **Ingest CSV** Midtrans (`Order ID`, `Amount`, `Total Fee`, `Settlement time`)
-  perlu untuk verifikasi/`pg_fee_amount` dan deteksi order yang belum `PAID`.
+  perlu untuk verifikasi/`pg_fee_amount` dan deteksi order yang belum `PAID` —
+  **bukan** untuk memilih order per transaksi.
+- **Skala settlement**: pemilihan transaksi set-based (satu query/`UPDATE`), 1 batch
+  per pencairan. J-3 diposting **per creator**; saat creator banyak, pakai key
+  idempoten per creator (`…:RELEASE:{userId}`) dan chunk. Lihat
+  [`manual-settlement.md` §5.8](./manual-settlement.md).

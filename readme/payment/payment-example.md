@@ -95,7 +95,7 @@ INSERT (id='SET-1', provider_id=1, status='CONFIRMED', expected_amount=100000,
 
 *(Kalau `actual != expected`, selisihnya dibukukan ke `FUND_TRANSFER_VARIANCE` (5900).)*
 
-**Ledger Jurnal → J-3** (`SETTLEMENT:SET-1:RELEASE`) — creator PENDING → AVAILABLE:
+**Ledger Jurnal → J-3** (`SETTLEMENT:SET-1:RELEASE:USER-123`) — creator PENDING → AVAILABLE:
 
 | Account | Owner | Direction | Amount |
 |---|---|---|---|

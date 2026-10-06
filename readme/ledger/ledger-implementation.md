@@ -278,7 +278,7 @@ lalu memanggil `LedgerApi.postJournal(...)`. Ringkasan event → key:
 |-------|-----------------|------------------------------------|
 | Payment paid | `PAYMENT:{paymentId}:PAID` | J-1 |
 | Settlement confirmed | `SETTLEMENT:{settlementId}:CONFIRMED` | J-2 |
-| Release creator funds | `SETTLEMENT:{settlementId}:RELEASE` | J-3 |
+| Release creator funds | `SETTLEMENT:{settlementId}:RELEASE:{creatorUserId}` | J-3 |
 | Fund transfer | `FUND_TRANSFER:{fundTransferId}` | J-4 |
 | Withdrawal hold | `WITHDRAWAL:{withdrawalId}:HOLD` | J-5 |
 | Payout completed | `PAYOUT:{payoutId}:COMPLETED` | J-6 |

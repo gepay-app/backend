@@ -143,11 +143,21 @@ Ini sumber kebingungan terbesar. Tiga hal yang berbeda:
 
 | # | Arti | Sumber | Peran di sistem |
 |---|---|---|---|
-| **A** | Status di **Midtrans**: transaksi sudah "settled" di sisi PG | webhook/CSV Midtrans | penanda **Paid** (kita: `payments.status=PAID`) |
+| **A** | Status di **Midtrans**: `transaction_status = settlement`, artinya uang sudah masuk **saldo Midtrans** (bukan rekening bank) | webhook/CSV Midtrans | penanda **Paid** (kita: `payments.status=PAID`) |
 | **B** | **Withdrawable di PG**: saldo di Midtrans sudah boleh ditarik ke bank | dashboard MAP | hanya untuk **pantauan**, tidak ada kolom khusus |
 | **C** | **Settlement kita**: uang sudah benar-benar masuk rekening bank | mutasi bank / bukti | **inilah yang memicu jurnal J-2 & J-3** |
 
-Midtrans pakai kata "settlement" untuk **A**. Jangan disamakan dengan **C**.
+Midtrans pakai kata "settlement" untuk **A**. Jangan disamakan dengan **C**, dan
+**jangan** memakai kata "settled" untuk **A**.
+
+### Settled (kita)
+
+Di aplikasi, **settled** hanya berarti **C**: transaksi sudah masuk batch settlement
+yang `CONFIRMED` → hak creator pindah `PENDING → AVAILABLE` → **bisa ditarik**.
+Disimpan di `payments.settlement_id` + `payments.settled_at`. Jadi "transaksi
+settled" = "transaksi yang dananya sudah cair ke bank platform dan dana creatornya
+sudah available".
+
 Alur admin: [manual-settlement.md](./payment/manual-settlement.md).
 
 ### Withdrawable
@@ -169,8 +179,12 @@ Settlement tidak boleh dipicu tebakan. Wajib ada bukti:
 ### Batch settlement
 
 Satu **header** `payment.settlements` yang mewakili satu pencairan dari satu
-provider. Berisi `expected_amount` (Σ transaksi yang di-match), `actual_amount`
+provider. Berisi `expected_amount` (Σ transaksi yang dipilih), `actual_amount`
 (nominal bukti), dan `variance_amount` (selisihnya). 1 payment masuk 1 batch.
+
+Batch dibuat **manual dari bukti**, tetapi **transaksi yang ikut dipilih otomatis
+oleh rule** (provider + `PAID` + belum ter-settle + tanggal withdrawable), bukan
+dipilih satu per satu. Satu pencairan = satu batch, berapa pun jumlah transaksinya.
 
 ### Variance
 

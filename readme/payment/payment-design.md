@@ -35,7 +35,9 @@ siapa yang bicara (detail: [Glosarium](../glossary.md#settlement-punya-3-arti)):
 
 **Aturan penting**: transaksi PG cukup berhenti di **Paid** (#2). Konsep #4 hidup di
 agregat terpisah (`settlements`) dan **hanya** dikonfirmasi oleh bukti. Midtrans
-memakai kata `settlement` untuk #1 — jangan disamakan dengan #4.
+memakai kata `settlement` untuk #1 — jangan disamakan dengan #4. Di aplikasi,
+istilah **settled** = konsep #4: transaksi sudah masuk batch `CONFIRMED` → hak
+creator `AVAILABLE` → **bisa ditarik**.
 
 ---
 
@@ -97,16 +99,19 @@ Pemetaan status Midtrans → event kanonik:
 ## 5. Settlement = batch berbasis bukti
 
 Midtrans **tidak** mengirim sinyal "dana sudah bisa ditarik". Pencairan ke bank
-dilakukan manual dari MAP, dan baru boleh dilakukan setelah beberapa hari kerja
-setelah transaksi settled. Karena itu:
+dilakukan manual dari MAP (aksi admin), dan baru boleh dilakukan setelah beberapa
+hari kerja setelah transaksi **PAID** (yang di Midtrans disebut status
+`settlement`). Karena itu:
 
 1. `payments.expected_settlement_date` = `paid_at` + `T+n` **hari kerja**
    (`channel_routes.settlement_delay_days` + `BusinessDayCalculator` + `holidays`).
 2. Tanggal itu **hanya monitor** (job OVERDUE), **bukan** pemicu jurnal.
-3. Bukti **keanggotaan** (order mana): CSV/report → match `Order ID`
-   (= `payment_attempts.provider_reference_id`).
+3. Transaksi yang masuk batch **dipilih otomatis by rule**: provider cocok, `PAID`,
+   `settlement_id IS NULL`, `expected_settlement_date <= cutoff`. Fallback
+   (pencairan sebagian / report): match `Order ID`
+   (= `payment_attempts.provider_reference_id`). Admin **tidak** memilih per transaksi.
 4. Bukti **nominal** (berapa): mutasi bank / konfirmasi MAP → `actual_amount`.
-5. `settlements` menyimpan `expected_amount` (Σ yang di-match), `actual_amount`,
+5. `settlements` menyimpan `expected_amount` (Σ transaksi terpilih), `actual_amount`,
    `variance_amount`, dan `evidence_*`.
 6. Konfirmasi batch (`CONFIRMED`) → posting **J-2** (dana ke bank) + **J-3**
    (creator `PENDING → AVAILABLE`).
@@ -128,7 +133,7 @@ Format: `{TYPE}:{ID}:{ACTION}`.
 |---|---|
 | Payment paid | `PAYMENT:{paymentId}:PAID` |
 | Settlement confirm | `SETTLEMENT:{settlementId}:CONFIRMED` |
-| Settlement release | `SETTLEMENT:{settlementId}:RELEASE` |
+| Settlement release | `SETTLEMENT:{settlementId}:RELEASE:{creatorUserId}` |
 | Withdrawal hold | `WITHDRAWAL:{withdrawalId}:HOLD` |
 | Payout completed / failed | `PAYOUT:{payoutId}:COMPLETED` / `:FAILED` |
 | Fund transfer | `FUND_TRANSFER:{fundTransferId}` |

@@ -23,7 +23,7 @@ Di setiap perpindahan, kita mencatat "siapa berutang/berhak berapa". Pencatatan
 itulah yang disebut **ledger (buku besar)**.
 
 Ada beberapa kata yang bikin bingung karena dipakai vendor dan kita dengan arti
-berbeda — terutama **"settlement"**. Baca dulu [Glosarium](./glossary.md).
+berbeda — terutama **"settlement"** dan **"settled"**. Baca dulu [Glosarium](./glossary.md).
 
 ---
 
@@ -82,9 +82,11 @@ Istilah di kotak `[ ]` = akun di ledger (lihat [glossary](./glossary.md) bila pe
 Angka & jurnal lengkapnya ada di [`payment/payment-example.md`](./payment/payment-example.md)
 dan [`ledger/ledger-example.md`](./ledger/ledger-example.md).
 
-> **Perhatian**: langkah 2 dan 3 di atas sama-sama disebut "settlement" oleh Midtrans
-> vs oleh kita. Itu sebabnya alur ini sering terasa membingungkan. Penjelasan
-> lengkap: [Glosarium → "Settlement"](./glossary.md#settlement-punya-3-arti).
+> **Perhatian**: Midtrans memakai kata `settlement` untuk **langkah 2** (uang sudah
+> masuk saldo Midtrans, kita: `PAID`), sedangkan kita memakai kata **settled** untuk
+> **langkah 3** (uang sudah masuk bank platform → hak creator `AVAILABLE`). Jadi
+> `settlement` di Midtrans **bukan** "settled" versi kita. Penjelasan lengkap:
+> [Glosarium → "Settlement"](./glossary.md#settlement-punya-3-arti).
 
 ---
 

@@ -86,7 +86,8 @@ Kunci matching ke webhook/CSV Midtrans: `provider_reference_id` = kolom
 ## 3. `settlements.status` — batch pencairan dari PG ke bank
 
 Batch dibuat **manual dari bukti**, bukan dari webhook (lihat
-[manual-settlement.md](./manual-settlement.md)).
+[manual-settlement.md](./manual-settlement.md)). Transaksi yang ikut dipilih
+otomatis by rule; admin hanya memverifikasi **total** terhadap mutasi bank.
 
 | Status | Arti awam | Yang terjadi |
 |---|---|---|
