@@ -1,4 +1,10 @@
-# Ledger Module — Design Specification
+# Ledger — Kontrak API & Spesifikasi
+
+> **Baca ini kalau** kamu ingin tahu signature `LedgerApi`, DTO, error code, dan
+> konfigurasi modul. Untuk konsep, baca dulu
+> [ledger_overview.md](./ledger_overview.md); untuk isi kode,
+> [ledger-implementation.md](./ledger-implementation.md); istilah:
+> [Glosarium](../glossary.md).
 
 > Modul `ledger` adalah mesin pencatatan akuntansi **double-entry (buku besar)** terisolasi.  
 > Bersifat **vendor-blind** (tidak tahu Midtrans, Flip, donasi, atau checkout) dan menjadi **single source of truth** untuk seluruh aset, utang, pendapatan, dan beban platform.
@@ -91,9 +97,9 @@ public interface LedgerApi {
     // ---------------------------------------------------------------------
     // Account — lazy get-or-create (called by payment module)
     // ---------------------------------------------------------------------
-    AccountBalance getOrCreateAccount(AccountCode code, String ownerRef);
+    AccountDto getOrCreateAccount(AccountCode code, String ownerRef);
 
-    AccountBalance getAccount(AccountCode code, String ownerRef);
+    AccountDto getAccount(AccountCode code, String ownerRef);
 
     // ---------------------------------------------------------------------
     // Journal — core write path
@@ -121,24 +127,19 @@ public interface LedgerApi {
             Long reversesJournalId
     );
 
-    // Convenience overload for payment module (builds idempotencyKey internally)
-    PostJournalResult postJournal(
-            JournalReferenceType referenceType,
-            String referenceId,
-            String description,
-            Instant occurredAt,
-            List<JournalLine> lines,
-            Long reversesJournalId
-    );
-
     // ---------------------------------------------------------------------
-    // Balance queries (read path, cached)
+    // Balance queries (read path)
     // ---------------------------------------------------------------------
-    AccountBalance getBalance(AccountCode code, String ownerRef);
+    AccountDto getBalance(AccountCode code, String ownerRef);
 
     long getBalanceAmount(AccountCode code, String ownerRef);
 }
 ```
+
+> **Catatan**: `LedgerApi` hanya mengekspos satu `postJournal` (key eksplisit dari
+> caller). Overload `postJournal(referenceType, referenceId, …)` **tidak** ada di
+> api — kalau perlu, itu method internal `LedgerService` yang menurunkan key dari
+> `description`, dan hanya dipakai internal/test.
 
 ---
 
@@ -273,5 +274,5 @@ The `postJournal` implementation follows these principles to **guarantee deadloc
 - **API Package**: `com.gepe.gepay.ledger.api` (`@NamedInterface("api")`)
 - **Internal Package**: `com.gepe.gepay.ledger.internal`
 - **i18n**: `src/main/resources/i18n/ledger/messages.properties` + `messages_id.properties`
-- **Cache**: `ledger-accountBalance` (TTL 10 min, safety net for cross-instance eviction)
+- **Cache**: **sengaja TIDAK di-cache** (pengecualian sadar terhadap `docs/agents/caching.md` §3): saldo adalah data krusial/keuangan, read path (`getBalance`/`getBalanceAmount`) wajib selalu membaca DB agar tidak pernah menyajikan saldo basi antar-instance.
 - **Migration**: `V4__ledger_tables.sql` (schema + global accounts seed)

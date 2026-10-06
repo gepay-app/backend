@@ -1,7 +1,18 @@
-# Core Ledger Module — Comprehensive Guide
+# Ledger — Konsep & Cara Kerja
 
-> **Modul `ledger` adalah mesin pencatatan akuntansi double-entry (buku besar) terisolasi.**  
-> Modul ini bersifat **vendor-blind** (tidak tahu Midtrans, Flip, donasi, atau checkout) dan bertindak sebagai **single source of truth** untuk seluruh aset, utang, pendapatan, dan beban platform.
+> **Baca ini kalau** kamu ingin paham "buku besar" tanpa detail kode. Jika istilah
+> akuntansi terasa asing, buka dulu [Glosarium](../glossary.md).
+>
+> Urutan dokumen ledger:
+> 1. **konsep & cara kerja** — dokumen ini
+> 2. [contoh jurnal](./ledger-example.md) — angka nyata per kejadian
+> 3. [kontrak API](./ledger-design.md) — signature & modul
+> 4. [implementasi (as-built)](./ledger-implementation.md) — isi kode
+>
+> **`ledger` adalah buku besar double-entry (pencatatan berpasangan) yang
+> terisolasi.** Ia bersifat **vendor-blind** (tidak tahu Midtrans/Flip/donasi) dan
+> menjadi sumber kebenaran tunggal untuk semua aset, utang, pendapatan, dan beban
+> platform.
 
 ---
 
@@ -91,12 +102,12 @@ public interface LedgerApi {
     /**
      * Dapatkan akun yang ada atau buat baru secara otomatis (lazy creation).
      */
-    AccountBalance getOrCreateAccount(AccountCode code, String ownerRef);
+    AccountDto getOrCreateAccount(AccountCode code, String ownerRef);
 
     /**
      * Dapatkan akun yang sudah ada. Lempar ServiceException (ACCOUNT_NOT_FOUND) jika tidak ada.
      */
-    AccountBalance getAccount(AccountCode code, String ownerRef);
+    AccountDto getAccount(AccountCode code, String ownerRef);
 
     /**
      * Posting jurnal akuntansi berpasangan (double-entry).
@@ -120,12 +131,12 @@ public interface LedgerApi {
     );
 
     /**
-     * Query detail saldo akun (ter-cache di Redis).
+     * Query detail saldo akun (selalu dari DB — sengaja tidak di-cache).
      */
-    AccountBalance getBalance(AccountCode code, String ownerRef);
+    AccountDto getBalance(AccountCode code, String ownerRef);
 
     /**
-     * Query nominal saldo bersih akun (ter-cache di Redis).
+     * Query nominal saldo bersih akun (selalu dari DB — sengaja tidak di-cache).
      */
     long getBalanceAmount(AccountCode code, String ownerRef);
 }

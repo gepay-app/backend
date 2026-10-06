@@ -73,8 +73,7 @@ CREATE TABLE payment.channel_routes
     priority                INT         NOT NULL DEFAULT 100, -- kecil = diprioritaskan saat failover
 
     -- Kebijakan settlement (kapan dana diperkirakan cair ke platform).
-    settlement_delay_days   INT         NOT NULL DEFAULT 3,   -- T+n
-    settlement_business_days BOOLEAN    NOT NULL DEFAULT TRUE, -- n dalam hari kerja (bukan kalender)
+    settlement_delay_days   INT         NOT NULL DEFAULT 3,   -- T+n, SELALU dalam hari kerja
     settlement_target       VARCHAR(20) NOT NULL DEFAULT 'BANK', -- BANK | PROVIDER_BALANCE
 
     is_active               BOOLEAN     NOT NULL DEFAULT TRUE,
@@ -85,7 +84,7 @@ CREATE TABLE payment.channel_routes
 
 INSERT INTO payment.channel_routes
 (provider_id, channel_id, provider_channel_code, min_amount, max_amount, priority,
- settlement_delay_days, settlement_business_days, settlement_target)
+ settlement_delay_days, settlement_target)
 SELECT p.id AS provider_id,
        c.id AS channel_id,
        v.provider_channel_code,
@@ -93,28 +92,27 @@ SELECT p.id AS provider_id,
        v.max_amount,
        v.priority,
        v.settlement_delay_days,
-       v.settlement_business_days,
        v.settlement_target
 FROM (VALUES
           -- PAYIN -> MIDTRANS (settlement: T+3 hari kerja, ke bank)
-          ('MIDTRANS', 'VA_PERMATA', 'permata', 10000, 50000000, 100, 3, TRUE, 'BANK'),
-          ('MIDTRANS', 'VA_BCA', 'bca', 10000, 50000000, 100, 3, TRUE, 'BANK'),
-          ('MIDTRANS', 'VA_BNI', 'bni', 10000, 50000000, 100, 3, TRUE, 'BANK'),
-          ('MIDTRANS', 'VA_BRI', 'bri', 10000, 50000000, 100, 3, TRUE, 'BANK'),
-          ('MIDTRANS', 'VA_CIMB', 'cimb', 10000, 50000000, 100, 3, TRUE, 'BANK'),
-          ('MIDTRANS', 'QRIS', 'qris', 1000, 50000000, 100, 3, TRUE, 'BANK'),
+          ('MIDTRANS', 'VA_PERMATA', 'permata', 10000, 50000000, 100, 3, 'BANK'),
+          ('MIDTRANS', 'VA_BCA', 'bca', 10000, 50000000, 100, 3, 'BANK'),
+          ('MIDTRANS', 'VA_BNI', 'bni', 10000, 50000000, 100, 3, 'BANK'),
+          ('MIDTRANS', 'VA_BRI', 'bri', 10000, 50000000, 100, 3, 'BANK'),
+          ('MIDTRANS', 'VA_CIMB', 'cimb', 10000, 50000000, 100, 3, 'BANK'),
+          ('MIDTRANS', 'QRIS', 'qris', 1000, 50000000, 100, 3, 'BANK'),
 
-          -- PAYOUT -> Flip (bukan settlement; default saja)
-          ('Flip', 'BANK_BCA', 'bca', 10000, 50000000, 100, 0, TRUE, 'PROVIDER_BALANCE'),
-          ('Flip', 'BANK_BNI', 'bni', 10000, 50000000, 100, 0, TRUE, 'PROVIDER_BALANCE'),
-          ('Flip', 'BANK_BRI', 'bri', 10000, 50000000, 100, 0, TRUE, 'PROVIDER_BALANCE'),
-          ('Flip', 'BANK_CIMB', 'cimb', 10000, 50000000, 100, 0, TRUE, 'PROVIDER_BALANCE'),
-          ('Flip', 'BANK_MANDIRI', 'mandiri', 10000, 50000000, 100, 0, TRUE, 'PROVIDER_BALANCE'),
-          ('Flip', 'EWALLET_GOPAY', 'gopay', 10000, 50000000, 100, 0, TRUE, 'PROVIDER_BALANCE'),
-          ('Flip', 'EWALLET_SHOPEE', 'shopeepay', 10000, 50000000, 100, 0, TRUE, 'PROVIDER_BALANCE'),
-          ('Flip', 'EWALLET_OVO', 'ovo', 10000, 50000000, 100, 0, TRUE, 'PROVIDER_BALANCE')) AS v(provider_code, channel_code, provider_channel_code,
+          -- PAYOUT -> FLIP (bukan settlement; default saja)
+          ('FLIP', 'BANK_BCA', 'bca', 10000, 50000000, 100, 0, 'PROVIDER_BALANCE'),
+          ('FLIP', 'BANK_BNI', 'bni', 10000, 50000000, 100, 0, 'PROVIDER_BALANCE'),
+          ('FLIP', 'BANK_BRI', 'bri', 10000, 50000000, 100, 0, 'PROVIDER_BALANCE'),
+          ('FLIP', 'BANK_CIMB', 'cimb', 10000, 50000000, 100, 0, 'PROVIDER_BALANCE'),
+          ('FLIP', 'BANK_MANDIRI', 'mandiri', 10000, 50000000, 100, 0, 'PROVIDER_BALANCE'),
+          ('FLIP', 'EWALLET_GOPAY', 'gopay', 10000, 50000000, 100, 0, 'PROVIDER_BALANCE'),
+          ('FLIP', 'EWALLET_SHOPEE', 'shopeepay', 10000, 50000000, 100, 0, 'PROVIDER_BALANCE'),
+          ('FLIP', 'EWALLET_OVO', 'ovo', 10000, 50000000, 100, 0, 'PROVIDER_BALANCE')) AS v(provider_code, channel_code, provider_channel_code,
                                                                               min_amount, max_amount, priority,
-                                                                              settlement_delay_days, settlement_business_days, settlement_target)
+                                                                              settlement_delay_days, settlement_target)
          JOIN payment.providers p ON p.code = v.provider_code
          JOIN payment.channels c ON c.code = v.channel_code
 ON CONFLICT ON CONSTRAINT ux_routes_provider_channel DO NOTHING;
@@ -185,19 +183,19 @@ FROM (VALUES
            'Midtrans QRIS (0.7% + PPN)'),
 
           -- PAYOUT (Flip - PAYOUT Channels)
-          ('PAYOUT', 'Flip', 'BANK_BCA', 2500, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
+          ('PAYOUT', 'FLIP', 'BANK_BCA', 2500, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
            'Flip Bank BCA payout (Rp2.500)'),
-          ('PAYOUT', 'Flip', 'BANK_BNI', 2500, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
+          ('PAYOUT', 'FLIP', 'BANK_BNI', 2500, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
            'Flip Bank BNI payout (Rp2.500)'),
-          ('PAYOUT', 'Flip', 'BANK_BRI', 2500, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
+          ('PAYOUT', 'FLIP', 'BANK_BRI', 2500, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
            'Flip Bank BRI payout (Rp2.500)'),
-          ('PAYOUT', 'Flip', 'BANK_CIMB', 2500, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
+          ('PAYOUT', 'FLIP', 'BANK_CIMB', 2500, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
            'Flip Bank CIMB payout (Rp2.500)'),
-          ('PAYOUT', 'Flip', 'EWALLET_GOPAY', 2500, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
+          ('PAYOUT', 'FLIP', 'EWALLET_GOPAY', 2500, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
            'Flip GoPay payout (Rp2.500)'),
-          ('PAYOUT', 'Flip', 'EWALLET_SHOPEE', 2500, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
+          ('PAYOUT', 'FLIP', 'EWALLET_SHOPEE', 2500, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
            'Flip ShopeePay payout (Rp2.500)'),
-          ('PAYOUT', 'Flip', 'EWALLET_OVO', 2500, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
+          ('PAYOUT', 'FLIP', 'EWALLET_OVO', 2500, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
            'Flip OVO payout (Rp2.500)')) AS v(fee_type, provider_code, channel_code, fixed_amount, percentage_bps,
                                               vat_bps, effective_from, note)
          LEFT JOIN payment.providers p ON p.code = v.provider_code

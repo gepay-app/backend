@@ -1,9 +1,14 @@
-# Payment Module — End-to-End Flow Example
+# Payment — Contoh Alur Uang Lengkap
 
-> Pendamping [`payment-design.md`](./payment-design.md). Menunjukkan alur dana lengkap:
-> **duit masuk PG → settlement ke bank → dana creator PENDING→AVAILABLE → top-up payout provider → creator withdraw**, dengan jurnal ledger di tiap step.
+> **Baca ini kalau** kamu ingin melihat satu perjalanan uang dari donatur sampai
+> creator, lengkap dengan status dan jurnal di tiap langkah.
 >
-> Semua nominal IDR bulat (`BIGINT`). Akun mengacu pada `AccountCode` enum modul `ledger`.
+> Konsep: [payment-design.md](./payment-design.md) · status:
+> [states.md](./states.md) · istilah: [Glosarium](../glossary.md) · jurnal
+> ledger: [ledger-example.md](../ledger/ledger-example.md).
+>
+> Alur: **duit masuk PG → settlement ke bank → hak creator PENDING→AVAILABLE →
+> top-up payout provider → creator withdraw**. Semua nominal IDR bulat (`BIGINT`).
 
 ---
 
@@ -11,8 +16,8 @@
 
 - Donatur bayar donasi **Rp 100.000** via Midtrans VA BCA, creator `USER-123`.
 - Platform fee: `PLATFORM_DONATION` = fixed 1.000 + 5% → **6.000**; PPN 11% → **660**. Net creator = 100.000 − 6.660 = **93.340**.
-- PG fee VA BCA (pass-through ke donatur): fixed 4.000 + PPN 440 → **4.440** (tidak masuk ledger; dibayar donatur, dipotong PG sebelum settle).
-- `channel_routes` untuk VA BCA: `settlement_delay_days=3`, `settlement_business_days=true`, `settlement_target=BANK`.
+- PG fee VA BCA (ditanggung donatur): fixed 4.000 + PPN 11% (440) → **4.440**. Donatur membayar **104.440**; Midtrans mengambil 4.440; **platform menerima gross 100.000**. Fee PG tidak masuk ledger (lihat [manual-settlement §7](./manual-settlement.md)).
+- `channel_routes` untuk VA BCA: `settlement_delay_days=3` (3 hari kerja), `settlement_target=BANK`.
 
 ID disingkat: `PAY-1`, `ATT-1`, `SET-1`, `WD-1`, `PO-1`, `FT-1`. Jurnal: `J-1`..`J-6`.
 
@@ -51,6 +56,7 @@ Midtrans kirim webhook status `settlement` (+`fraud_status=accept`). Adapter mem
 ```
 
 **Ledger Jurnal → J-1** (`PAYMENT:PAY-1:PAID`):
+
 | Account | Owner | Direction | Amount |
 |---|---|---|---|
 | `PG_CLEARING_RECEIVABLE` (1100) | MIDTRANS | DEBIT | 100.000 |
@@ -81,6 +87,7 @@ INSERT (id='SET-1', provider_id=1, status='CONFIRMED', expected_amount=100000,
 ```
 
 **Ledger Jurnal → J-2** (`SETTLEMENT:SET-1:CONFIRMED`) — dana PG → bank platform:
+
 | Account | Owner | Direction | Amount |
 |---|---|---|---|
 | `BANK_OPERATING` (1200) | BANK-1 | DEBIT | 100.000 |
@@ -89,6 +96,7 @@ INSERT (id='SET-1', provider_id=1, status='CONFIRMED', expected_amount=100000,
 *(Kalau `actual != expected`, selisihnya dibukukan ke `FUND_TRANSFER_VARIANCE` (5900).)*
 
 **Ledger Jurnal → J-3** (`SETTLEMENT:SET-1:RELEASE`) — creator PENDING → AVAILABLE:
+
 | Account | Owner | Direction | Amount |
 |---|---|---|---|
 | `CREATOR_PAYABLE_PENDING` (2100) | USER-123 | DEBIT | 93.340 |
@@ -111,6 +119,7 @@ INSERT (id='FT-1', direction='TO_PAYOUT_PROVIDER', source_type='BANK',
 ```
 
 **Ledger Jurnal → J-4** (`FUND_TRANSFER:FT-1`):
+
 | Account | Owner | Direction | Amount |
 |---|---|---|---|
 | `PAYOUT_PROVIDER_FLOAT` (1300) | FLIP | DEBIT | 500.500 |
@@ -130,6 +139,7 @@ INSERT (id='WD-1', user_id='USER-123', destination_id=…, status='REQUESTED',
 ```
 
 **Ledger Jurnal → J-5** (`WITHDRAWAL:WD-1:HOLD`) — available di-hold:
+
 | Account | Owner | Direction | Amount |
 |---|---|---|---|
 | `CREATOR_PAYABLE_AVAILABLE` (2110) | USER-123 | DEBIT | 90.000 |
@@ -150,6 +160,7 @@ INSERT (id='PO-1', withdrawal_id='WD-1', provider_id=2 /*FLIP*/, status='COMPLET
 ```
 
 **Ledger Jurnal → J-6** (`PAYOUT:PO-1:COMPLETED`):
+
 | Account | Owner | Direction | Amount |
 |---|---|---|---|
 | `WITHDRAWAL_PAYABLE` (2200) | USER-123 | DEBIT | 90.000 |

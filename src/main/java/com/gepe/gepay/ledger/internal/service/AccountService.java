@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AccountService {
 
     private final AccountRepository accountRepository;
+    private final AccountProvisioningService provisioningService;
     private final LedgerMapper mapper;
 
     @Transactional
@@ -46,9 +47,11 @@ public class AccountService {
         }
 
         // Not found — INSERT and let DB unique constraint handle race conditions
+        // INSERT di transaksi sendiri (REQUIRES_NEW) supaya kalau kalah race,
+        // transaksi pemanggil tidak ikut ter-abort oleh Postgres.
         Account account = Account.create(code, ownerRef);
         try {
-            Account saved = accountRepository.saveAndFlush(account);
+            Account saved = provisioningService.insert(account);
             log.debug("Created ledger account: code={}, name={}, ownerType={}, ownerRef={}, id={}",
                     codeStr, code.getDisplayName(), ownerType, ownerRef, saved.getId());
             return mapper.toDto(saved);

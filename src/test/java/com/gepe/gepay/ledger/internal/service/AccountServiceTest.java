@@ -30,6 +30,9 @@ class AccountServiceTest {
     private AccountRepository accountRepository;
 
     @Mock
+    private AccountProvisioningService provisioningService;
+
+    @Mock
     private LedgerMapper mapper;
 
     @InjectMocks
@@ -79,7 +82,7 @@ class AccountServiceTest {
         AccountDto result = accountService.getOrCreateAccount(AccountCode.PG_CLEARING_RECEIVABLE, "MIDTRANS");
 
         assertThat(result).isEqualTo(acc1Dto);
-        verify(accountRepository, never()).saveAndFlush(any());
+        verify(provisioningService, never()).insert(any());
     }
 
     @Test
@@ -88,14 +91,14 @@ class AccountServiceTest {
         when(accountRepository.findByCodeAndOwnerTypeAndOwnerRef(
                 eq(AccountCode.PG_CLEARING_RECEIVABLE), any(), eq("MIDTRANS")))
                 .thenReturn(Optional.empty());
-        when(accountRepository.saveAndFlush(any(Account.class))).thenReturn(acc1);
+        when(provisioningService.insert(any(Account.class))).thenReturn(acc1);
 
         AccountDto result = accountService.getOrCreateAccount(AccountCode.PG_CLEARING_RECEIVABLE, "MIDTRANS");
 
         assertThat(result.id()).isEqualTo(1L);
         assertThat(result.code()).isEqualTo(AccountCode.PG_CLEARING_RECEIVABLE);
         assertThat(result.ownerRef()).isEqualTo("MIDTRANS");
-        verify(accountRepository).saveAndFlush(any(Account.class));
+        verify(provisioningService).insert(any(Account.class));
     }
 
     @Test
@@ -104,7 +107,7 @@ class AccountServiceTest {
         when(accountRepository.findByCodeAndOwnerTypeAndOwnerRef(
                 eq(AccountCode.PG_CLEARING_RECEIVABLE), any(), eq("MIDTRANS")))
                 .thenReturn(Optional.empty(), Optional.of(acc1));
-        when(accountRepository.saveAndFlush(any(Account.class)))
+        when(provisioningService.insert(any(Account.class)))
                 .thenThrow(new org.springframework.dao.DataIntegrityViolationException("duplicate"));
 
         AccountDto result = accountService.getOrCreateAccount(AccountCode.PG_CLEARING_RECEIVABLE, "MIDTRANS");
@@ -129,7 +132,7 @@ class AccountServiceTest {
                 .thenReturn(Optional.empty());
         Account globalAcc = Account.create(AccountCode.VAT_PAYABLE, null);
         setAccountId(globalAcc, 2L);
-        when(accountRepository.saveAndFlush(any(Account.class))).thenReturn(globalAcc);
+        when(provisioningService.insert(any(Account.class))).thenReturn(globalAcc);
 
         AccountDto result = accountService.getOrCreateAccount(AccountCode.VAT_PAYABLE, "some-ref");
 

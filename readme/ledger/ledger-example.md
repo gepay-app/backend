@@ -1,4 +1,8 @@
-# Ledger Module — Journal Examples
+# Ledger — Contoh Jurnal
+
+> **Baca ini kalau** kamu ingin melihat angka jurnal nyata per kejadian bisnis.
+> Konsep & istilah dulu: [ledger_overview.md](./ledger_overview.md) ·
+> [Glosarium](../glossary.md). Alur uang lengkap: [payment-example.md](../payment/payment-example.md).
 
 > Pendamping [`ledger-design.md`](./ledger-design.md). Semua jurnal contoh menggunakan `AccountCode` enum asli.  
 > Nominal dalam IDR (rupiah bulat, `BIGINT`).
@@ -59,18 +63,22 @@ ledgerApi.postJournal("PAYMENT:PAY-1:PAID", JournalReferenceType.PAYMENT, "PAY-1
 
 ## J-2: Settlement Confirmed (PG → Bank Platform)
 
-**Kasus**: Midtrans settlement Rp 100.000 terkonfirmasi (laporan diterima).
+**Kasus**: Midtrans settlement Rp 100.000 terkonfirmasi (laporan diterima) dan dana
+masuk ke rekening bank platform (`settlement_target = BANK`).
 
 | # | AccountCode | OwnerRef | Direction | Amount |
 |---|-------------|----------|-----------|--------|
-| 1 | `PAYIN_PROVIDER_BALANCE` | `MIDTRANS` | DEBIT | 100.000 |
+| 1 | `BANK_OPERATING` | `BANK-1` | DEBIT | 100.000 |
 | 2 | `PG_CLEARING_RECEIVABLE` | `MIDTRANS` | CREDIT | 100.000 |
 
 **Σ DEBIT = 100.000 = Σ CREDIT** ✓
 
+> Kalau `settlement_target = PROVIDER_BALANCE` (dana tetap di saldo provider),
+> debit-nya `PAYIN_PROVIDER_BALANCE` (1150) dan bukan `BANK_OPERATING`.
+
 ```java
 List<JournalLine> lines = List.of(
-    new JournalLine(AccountCode.PAYIN_PROVIDER_BALANCE, "MIDTRANS", EntryDirection.DEBIT, 100_000),
+    new JournalLine(AccountCode.BANK_OPERATING, "BANK-1", EntryDirection.DEBIT, 100_000),
     new JournalLine(AccountCode.PG_CLEARING_RECEIVABLE, "MIDTRANS", EntryDirection.CREDIT, 100_000)
 );
 
@@ -103,9 +111,37 @@ ledgerApi.postJournal("SETTLEMENT:SET-1:RELEASE", JournalReferenceType.SETTLEMEN
 
 ---
 
-## J-4: Withdrawal Hold (Available → Hold)
+## J-4: Fund Transfer (Bank Platform → Flip)
 
-**Kasus**: Creator `USER-123` request withdraw Rp 500.000.
+**Kasus**: Top-up saldo Flip Rp 503.000 dari rekening bank operasional (dipakai
+untuk membayar creator; termasuk buffer fee). Ini **bukan** pendapatan/biaya —
+hanya memindahkan uang milik kita sendiri.
+
+| # | AccountCode | OwnerRef | Direction | Amount |
+|---|-------------|----------|-----------|--------|
+| 1 | `PAYOUT_PROVIDER_FLOAT` | `FLIP` | DEBIT | 503.000 |
+| 2 | `BANK_OPERATING` | `BANK-1` | CREDIT | 503.000 |
+
+**Σ DEBIT = 503.000 = Σ CREDIT** ✓
+
+> Kalau sumbernya saldo provider payin, kreditnya `PAYIN_PROVIDER_BALANCE` (1150).
+
+```java
+List<JournalLine> lines = List.of(
+    new JournalLine(AccountCode.PAYOUT_PROVIDER_FLOAT, "FLIP", EntryDirection.DEBIT, 503_000),
+    new JournalLine(AccountCode.BANK_OPERATING, "BANK-1", EntryDirection.CREDIT, 503_000)
+);
+
+ledgerApi.postJournal("FUND_TRANSFER:FT-1", JournalReferenceType.FUND_TRANSFER, "FT-1",
+    "Top-up Flip FT-1 from bank operating", transferAt, lines, null);
+```
+
+---
+
+## J-5: Withdrawal Hold (Available → Hold)
+
+**Kasus**: Creator `USER-123` minta tarik Rp 500.000. Uangnya dikunci dulu supaya
+tidak bisa dipakai ganda (dari "boleh ditarik" menjadi "sedang ditarik").
 
 | # | AccountCode | OwnerRef | Direction | Amount |
 |---|-------------|----------|-----------|--------|
@@ -122,29 +158,6 @@ List<JournalLine> lines = List.of(
 
 ledgerApi.postJournal("WITHDRAWAL:WD-1:HOLD", JournalReferenceType.WITHDRAWAL, "WD-1",
     "Hold withdrawal WD-1", requestedAt, lines, null);
-```
-
----
-
-## J-5: Fund Transfer (Midtrans → Flip)
-
-**Kasus**: Top-up Flip Rp 503.000 dari saldo Midtrans (termasuk buffer fee).
-
-| # | AccountCode | OwnerRef | Direction | Amount |
-|---|-------------|----------|-----------|--------|
-| 1 | `PAYOUT_PROVIDER_FLOAT` | `FLIP` | DEBIT | 503.000 |
-| 2 | `PAYIN_PROVIDER_BALANCE` | `MIDTRANS` | CREDIT | 503.000 |
-
-**Σ DEBIT = 503.000 = Σ CREDIT** ✓
-
-```java
-List<JournalLine> lines = List.of(
-    new JournalLine(AccountCode.PAYOUT_PROVIDER_FLOAT, "FLIP", EntryDirection.DEBIT, 503_000),
-    new JournalLine(AccountCode.PAYIN_PROVIDER_BALANCE, "MIDTRANS", EntryDirection.CREDIT, 503_000)
-);
-
-ledgerApi.postJournal("FUND_TRANSFER:FT-1", JournalReferenceType.FUND_TRANSFER, "FT-1",
-    "Top-up Flip FT-1 from Midtrans balance", transferAt, lines, null);
 ```
 
 ---
