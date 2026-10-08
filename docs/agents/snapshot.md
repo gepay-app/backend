@@ -30,7 +30,7 @@ and `platform` all live under it.
 | `platform` | `com.gepe.gepay.platform` | OPEN (shared) | stable — web, logging, exception, i18n, config, cache, security, modulith recovery |
 | `identity` | `com.gepe.gepay.identity` | CLOSED | stable — Firebase auth enrichment, users, roles, `CurrentUser` |
 | `ledger` | `com.gepe.gepay.ledger` | CLOSED | stable — double-entry ledger, accounts, journals |
-| `payment` | `com.gepe.gepay.payment` | CLOSED | in progress — donations, settlement, withdrawal/payout, reconciliation |
+| `payment` | `com.gepe.gepay.payment` | CLOSED | in progress — generic payment engine: payin, settlement, withdrawal/payout, reconciliation |
 
 ## Database migrations (Flyway, `src/main/resources/db/migration`)
 

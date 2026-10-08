@@ -11,6 +11,7 @@ import java.util.UUID;
 public record UserFeeOverrideCreateRequest(
         UUID userId,
         FeeType feeType,
+        String productType,
         Long fixedAmount,
         Integer percentageBps,
         Integer vatBps,

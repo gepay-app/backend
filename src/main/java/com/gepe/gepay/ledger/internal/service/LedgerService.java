@@ -89,14 +89,14 @@ public class LedgerService {
         // 5. Create Journal Entity — validate reversal & catch DB unique constraint on idempotency_key for race handling
         Journal journal = Journal.create(idempotencyKey, referenceType, referenceId, description, occurredAt);
         if (reversesJournalId != null) {
-            Journal reverses = journalRepository.findById(reversesJournalId)
-                    .orElseThrow(() -> new ServiceException(LedgerError.REVERSES_JOURNAL_NOT_FOUND, reversesJournalId));
-            
+            if (!journalRepository.existsById(reversesJournalId)) {
+                throw new ServiceException(LedgerError.REVERSES_JOURNAL_NOT_FOUND, reversesJournalId);
+            }
             if (journalRepository.existsByReversesJournalId(reversesJournalId)) {
                 throw new ServiceException(LedgerError.JOURNAL_ALREADY_REVERSED, reversesJournalId);
             }
 
-            journal = Journal.createReversal(idempotencyKey, referenceType, referenceId, description, occurredAt, reverses);
+            journal = Journal.createReversal(idempotencyKey, referenceType, referenceId, description, occurredAt, reversesJournalId);
         }
 
         Journal savedJournal;

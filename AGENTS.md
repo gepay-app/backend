@@ -38,7 +38,7 @@ below, so **section numbers are public API too — do not renumber them**.
 | `platform` | OPEN (shared) | web, logging, exception, i18n, config, cache, security, modulith recovery | stable |
 | `identity` | CLOSED | Firebase auth enrichment, users, roles, `CurrentUser` | stable |
 | `ledger` | CLOSED | double-entry ledger, accounts, journals | stable |
-| `payment` | CLOSED | donations, settlement, withdrawal/payout, reconciliation | in progress |
+| `payment` | CLOSED | generic payment engine: payin, settlement, withdrawal/payout, reconciliation (donation = consumer) | in progress |
 
 ---
 
@@ -70,6 +70,12 @@ below, so **section numbers are public API too — do not renumber them**.
 11. `ModularityTests` must stay green — it enforces the module boundaries. → §8
 12. Audit fields are declared **manually per entity** — there is deliberately
     no `BaseEntity` (readability over abstraction). → §3 (persistence)
+13. Entity relations: **write** through the FK `*Id` column, **read** through a
+    separate `LAZY` `@ManyToOne` (`insertable = false, updatable = false`).
+    A column has only **one** writable mapping — keep `*Id` writable and the
+    association read-only. Never add `@OneToMany` to a table that grows without
+    bound (`payments`, `payment_attempts`, `entries`, …) — only to
+    bounded/reference tables. → §3 (persistence)
 
 ---
 

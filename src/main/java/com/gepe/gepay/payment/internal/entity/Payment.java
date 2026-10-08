@@ -1,7 +1,6 @@
 package com.gepe.gepay.payment.internal.entity;
 
 import com.gepe.gepay.payment.api.enums.PaymentStatus;
-import com.gepe.gepay.payment.api.enums.PaymentType;
 import com.github.f4b6a3.uuid.UuidCreator;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
@@ -32,10 +31,10 @@ public class Payment {
     @Column(name = "idempotency_key", nullable = false, length = 160)
     private String idempotencyKey;
 
-    @Enumerated(EnumType.STRING)
     @NotNull
+    @Size(max = 20)
     @Column(name = "type", nullable = false, length = 20)
-    private PaymentType type;
+    private String type;
 
     @Enumerated(EnumType.STRING)
     @NotNull
@@ -121,6 +120,13 @@ public class Payment {
     @JoinColumn(name = "platform_fee_config_id", insertable = false, updatable = false)
     private FeeConfig platformFeeConfig;
 
+    @Column(name = "user_fee_override_id")
+    private Long userFeeOverrideId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_fee_override_id", insertable = false, updatable = false)
+    private UserFeeOverride userFeeOverride;
+
     @NotNull
     @ColumnDefault("0")
     @Column(name = "platform_fixed_fee_amount", nullable = false)
@@ -204,7 +210,7 @@ public class Payment {
      */
     public static Payment create(
             String idempotencyKey,
-            PaymentType type,
+            String type,
             UUID userId,
             UUID payerId,
             Long providerId,

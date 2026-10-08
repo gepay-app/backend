@@ -36,8 +36,11 @@ public class Journal {
     @Column(name = "reference_id", nullable = false, length = 64, updatable = false)
     private String referenceId;
 
+    @Column(name = "reverses_journal_id", updatable = false)
+    private Long reversesJournalId;
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "reverses_journal_id", updatable = false)
+    @JoinColumn(name = "reverses_journal_id", insertable = false, updatable = false)
     private Journal reversesJournal;
 
     @Size(max = 255)
@@ -73,10 +76,9 @@ public class Journal {
     public static Journal createReversal(
             String idempotencyKey,
             JournalReferenceType referenceType, String referenceId,
-            String description, Instant occurredAt, Journal reversesJournal) {
-        Journal j = create(idempotencyKey,referenceType, referenceId, description, occurredAt);
-        j.reversesJournal = reversesJournal;
-
+            String description, Instant occurredAt, Long reversesJournalId) {
+        Journal j = create(idempotencyKey, referenceType, referenceId, description, occurredAt);
+        j.reversesJournalId = reversesJournalId;
         return j;
     }
 }

@@ -26,6 +26,10 @@ public class FeeConfig {
     @Column(name = "fee_type", nullable = false, length = 30)
     private FeeType feeType;
 
+    @Size(max = 30)
+    @Column(name = "product_type", length = 30)
+    private String productType;
+
     @Column(name = "provider_id")
     private Long providerId;
 
@@ -81,9 +85,11 @@ public class FeeConfig {
      *
      * @param providerId null untuk fee platform (global); diisi untuk GATEWAY_PROCESSING/PAYOUT
      * @param channelId  null untuk fee platform (global); diisi untuk GATEWAY_PROCESSING/PAYOUT
+     * @param productType kode produk consumer; hanya untuk PLATFORM_PAYIN (mis. "DONATION")
      */
     public static FeeConfig create(
             FeeType feeType,
+            String productType,
             Long providerId,
             Long channelId,
             Long fixedAmount,
@@ -95,6 +101,7 @@ public class FeeConfig {
     ){
         FeeConfig f = new FeeConfig();
         f.feeType = feeType;
+        f.productType = productType;
         f.providerId = providerId;
         f.channelId = channelId;
         f.fixedAmount = fixedAmount;

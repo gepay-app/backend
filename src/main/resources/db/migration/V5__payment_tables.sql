@@ -124,8 +124,10 @@ ON CONFLICT ON CONSTRAINT ux_routes_provider_channel DO NOTHING;
 CREATE TABLE payment.fee_configs
 (
     id             BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    fee_type       VARCHAR(30) NOT NULL,                     -- PLATFORM_DONATION | PLATFORM_CONTENT
-    -- | PLATFORM_WITHDRAWAL | GATEWAY_PROCESSING | PAYOUT
+    fee_type       VARCHAR(30) NOT NULL,                     -- PLATFORM_PAYIN | PLATFORM_WITHDRAWAL
+    -- | GATEWAY_PROCESSING | PAYOUT
+    product_type   VARCHAR(30),                              -- kode produk dari consumer (mis. DONATION);
+    -- diisi HANYA utk PLATFORM_PAYIN; payment cuma menyimpan, tidak menafsirkan
     provider_id    BIGINT REFERENCES payment.providers (id), -- diisi utk GATEWAY_PROCESSING/PAYOUT
     channel_id     BIGINT REFERENCES payment.channels (id),  -- diisi utk GATEWAY_PROCESSING/PAYOUT
     fixed_amount   BIGINT      NOT NULL DEFAULT 0,
@@ -137,9 +139,11 @@ CREATE TABLE payment.fee_configs
     created_by     VARCHAR(64),
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT ck_fee_scope CHECK (
-        (fee_type IN ('PLATFORM_DONATION', 'PLATFORM_CONTENT', 'PLATFORM_WITHDRAWAL')
-            AND provider_id IS NULL AND channel_id IS NULL)
-            OR fee_type IN ('GATEWAY_PROCESSING', 'PAYOUT')
+        (fee_type = 'PLATFORM_PAYIN'
+            AND provider_id IS NULL AND channel_id IS NULL AND product_type IS NOT NULL)
+            OR (fee_type = 'PLATFORM_WITHDRAWAL'
+                AND provider_id IS NULL AND channel_id IS NULL AND product_type IS NULL)
+            OR (fee_type IN ('GATEWAY_PROCESSING', 'PAYOUT') AND product_type IS NULL)
         ),
     CONSTRAINT ck_fee_rates CHECK (
         fixed_amount >= 0 AND percentage_bps >= 0 AND vat_bps >= 0
@@ -147,11 +151,12 @@ CREATE TABLE payment.fee_configs
         )
 );
 CREATE INDEX ix_fee_configs_lookup
-    ON payment.fee_configs (fee_type, provider_id, channel_id, effective_from DESC);
+    ON payment.fee_configs (fee_type, product_type, provider_id, channel_id, effective_from DESC);
 
 INSERT INTO payment.fee_configs
-(fee_type, provider_id, channel_id, fixed_amount, percentage_bps, vat_bps, effective_from, note)
+(fee_type, product_type, provider_id, channel_id, fixed_amount, percentage_bps, vat_bps, effective_from, note)
 SELECT v.fee_type,
+       v.product_type,
        p.id,
        c.id,
        v.fixed_amount,
@@ -160,49 +165,51 @@ SELECT v.fee_type,
        v.effective_from,
        v.note
 FROM (VALUES
-          -- PLATFORM FEES (Global - Tanpa Provider/Channel)
-          ('PLATFORM_DONATION', NULL, NULL, 1000, 500, 1100, TIMESTAMPTZ '2026-10-03 00:00:00+07',
+          -- PLATFORM FEES per produk consumer (product_type = payments.type).
+          -- Nilai produk (DONATION, CONTENT_PURCHASE) milik consumer; baris ini contoh awal.
+          ('PLATFORM_PAYIN', 'DONATION', NULL, NULL, 1000, 500, 1100, TIMESTAMPTZ '2026-10-03 00:00:00+07',
            'Platform fee donasi ((1000+5%) + PPN 11%)'),
-          ('PLATFORM_CONTENT', NULL, NULL, 1000, 500, 1100, TIMESTAMPTZ '2026-10-03 00:00:00+07',
-           'Platform fee konten ((1000+5%) + PPN 11%)'),
-          ('PLATFORM_WITHDRAWAL', NULL, NULL, 3000, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
+          ('PLATFORM_PAYIN', 'CONTENT_PURCHASE', NULL, NULL, 1000, 500, 1100, TIMESTAMPTZ '2026-10-03 00:00:00+07',
+           'Platform fee pembelian konten ((1000+5%) + PPN 11%)'),
+          ('PLATFORM_WITHDRAWAL', NULL, NULL, NULL, 3000, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
            'Platform withdrawal fee flat Rp3.000'),
 
           -- GATEWAY_PROCESSING (Midtrans - PAYIN Channels)
-          ('GATEWAY_PROCESSING', 'MIDTRANS', 'VA_PERMATA', 4000, 0, 1100, TIMESTAMPTZ '2026-10-03 00:00:00+07',
+          ('GATEWAY_PROCESSING', NULL, 'MIDTRANS', 'VA_PERMATA', 4000, 0, 1100, TIMESTAMPTZ '2026-10-03 00:00:00+07',
            'Midtrans Permata VA (Rp4.000 + PPN)'),
-          ('GATEWAY_PROCESSING', 'MIDTRANS', 'VA_BCA', 4000, 0, 1100, TIMESTAMPTZ '2026-10-03 00:00:00+07',
+          ('GATEWAY_PROCESSING', NULL, 'MIDTRANS', 'VA_BCA', 4000, 0, 1100, TIMESTAMPTZ '2026-10-03 00:00:00+07',
            'Midtrans BCA VA (Rp4.000 + PPN)'),
-          ('GATEWAY_PROCESSING', 'MIDTRANS', 'VA_BNI', 4000, 0, 1100, TIMESTAMPTZ '2026-10-03 00:00:00+07',
+          ('GATEWAY_PROCESSING', NULL, 'MIDTRANS', 'VA_BNI', 4000, 0, 1100, TIMESTAMPTZ '2026-10-03 00:00:00+07',
            'Midtrans BNI VA (Rp4.000 + PPN)'),
-          ('GATEWAY_PROCESSING', 'MIDTRANS', 'VA_BRI', 4000, 0, 1100, TIMESTAMPTZ '2026-10-03 00:00:00+07',
+          ('GATEWAY_PROCESSING', NULL, 'MIDTRANS', 'VA_BRI', 4000, 0, 1100, TIMESTAMPTZ '2026-10-03 00:00:00+07',
            'Midtrans BRI VA (Rp4.000 + PPN)'),
-          ('GATEWAY_PROCESSING', 'MIDTRANS', 'VA_CIMB', 4000, 0, 1100, TIMESTAMPTZ '2026-10-03 00:00:00+07',
+          ('GATEWAY_PROCESSING', NULL, 'MIDTRANS', 'VA_CIMB', 4000, 0, 1100, TIMESTAMPTZ '2026-10-03 00:00:00+07',
            'Midtrans CIMB VA (Rp4.000 + PPN)'),
-          ('GATEWAY_PROCESSING', 'MIDTRANS', 'QRIS', 0, 70, 1100, TIMESTAMPTZ '2026-10-03 00:00:00+07',
+          ('GATEWAY_PROCESSING', NULL, 'MIDTRANS', 'QRIS', 0, 70, 1100, TIMESTAMPTZ '2026-10-03 00:00:00+07',
            'Midtrans QRIS (0.7% + PPN)'),
 
           -- PAYOUT (Flip - PAYOUT Channels)
-          ('PAYOUT', 'FLIP', 'BANK_BCA', 2500, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
+          ('PAYOUT', NULL, 'FLIP', 'BANK_BCA', 2500, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
            'Flip Bank BCA payout (Rp2.500)'),
-          ('PAYOUT', 'FLIP', 'BANK_BNI', 2500, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
+          ('PAYOUT', NULL, 'FLIP', 'BANK_BNI', 2500, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
            'Flip Bank BNI payout (Rp2.500)'),
-          ('PAYOUT', 'FLIP', 'BANK_BRI', 2500, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
+          ('PAYOUT', NULL, 'FLIP', 'BANK_BRI', 2500, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
            'Flip Bank BRI payout (Rp2.500)'),
-          ('PAYOUT', 'FLIP', 'BANK_CIMB', 2500, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
+          ('PAYOUT', NULL, 'FLIP', 'BANK_CIMB', 2500, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
            'Flip Bank CIMB payout (Rp2.500)'),
-          ('PAYOUT', 'FLIP', 'EWALLET_GOPAY', 2500, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
+          ('PAYOUT', NULL, 'FLIP', 'EWALLET_GOPAY', 2500, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
            'Flip GoPay payout (Rp2.500)'),
-          ('PAYOUT', 'FLIP', 'EWALLET_SHOPEE', 2500, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
+          ('PAYOUT', NULL, 'FLIP', 'EWALLET_SHOPEE', 2500, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
            'Flip ShopeePay payout (Rp2.500)'),
-          ('PAYOUT', 'FLIP', 'EWALLET_OVO', 2500, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
-           'Flip OVO payout (Rp2.500)')) AS v(fee_type, provider_code, channel_code, fixed_amount, percentage_bps,
-                                              vat_bps, effective_from, note)
+          ('PAYOUT', NULL, 'FLIP', 'EWALLET_OVO', 2500, 0, 0, TIMESTAMPTZ '2026-10-03 00:00:00+07',
+           'Flip OVO payout (Rp2.500)')) AS v(fee_type, product_type, provider_code, channel_code, fixed_amount,
+                                             percentage_bps, vat_bps, effective_from, note)
          LEFT JOIN payment.providers p ON p.code = v.provider_code
          LEFT JOIN payment.channels c ON c.code = v.channel_code
 WHERE NOT EXISTS (SELECT 1
                   FROM payment.fee_configs f
                   WHERE f.fee_type = v.fee_type
+                    AND f.product_type IS NOT DISTINCT FROM v.product_type
                     AND f.effective_from = v.effective_from
                     AND f.provider_id IS NOT DISTINCT FROM p.id
                     AND f.channel_id IS NOT DISTINCT FROM c.id);
@@ -213,6 +220,7 @@ CREATE TABLE payment.user_fee_overrides
     id             BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id        UUID         NOT NULL,
     fee_type       VARCHAR(30)  NOT NULL,
+    product_type   VARCHAR(30),                              -- kode produk consumer (utk PLATFORM_PAYIN)
     fixed_amount   BIGINT       NOT NULL DEFAULT 0,
     percentage_bps INT          NOT NULL DEFAULT 0,
     vat_bps        INT          NOT NULL DEFAULT 0,
@@ -227,7 +235,7 @@ CREATE TABLE payment.user_fee_overrides
         )
 );
 CREATE INDEX ix_user_fee_overrides_lookup
-    ON payment.user_fee_overrides (user_id, fee_type, effective_from DESC);
+    ON payment.user_fee_overrides (user_id, fee_type, product_type, effective_from DESC);
 
 -- =====================================================================
 -- PAYMENT — hari libur (untuk hitung hari kerja settlement)

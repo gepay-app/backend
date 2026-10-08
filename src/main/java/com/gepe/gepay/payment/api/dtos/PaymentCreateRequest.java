@@ -1,17 +1,17 @@
 package com.gepe.gepay.payment.api.dtos;
 
-import com.gepe.gepay.payment.api.enums.PaymentType;
-
 import java.util.Map;
 import java.util.UUID;
 
 /**
+ * @param type           kode produk dari modul consumer (mis. "DONATION"); payment
+ *                       tidak menafsirkan artinya — hanya menyimpan sebagai label
  * @param channelId      id {@code payment.channels}
  * @param channelRouteId id {@code payment.channel_routes}
  */
 public record PaymentCreateRequest(
         String idempotencyKey,
-        PaymentType type,
+        String type,
         UUID userId,
         UUID payerId,
         Long channelId,

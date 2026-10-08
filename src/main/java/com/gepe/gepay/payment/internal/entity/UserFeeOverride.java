@@ -31,6 +31,10 @@ public class UserFeeOverride {
     @Column(name = "fee_type", nullable = false, length = 30)
     private FeeType feeType;
 
+    @Size(max = 30)
+    @Column(name = "product_type", length = 30)
+    private String productType;
+
     @NotNull
     @ColumnDefault("0")
     @Column(name = "fixed_amount", nullable = false)
@@ -75,6 +79,7 @@ public class UserFeeOverride {
     public static UserFeeOverride create(
             UUID userId,
             FeeType feeType,
+            String productType,
             Long fixedAmount,
             Integer percentageBps,
             Integer vatBps,
@@ -85,6 +90,7 @@ public class UserFeeOverride {
         UserFeeOverride o = new UserFeeOverride();
         o.userId = userId;
         o.feeType = feeType;
+        o.productType = productType;
         o.fixedAmount = fixedAmount;
         o.percentageBps = percentageBps;
         o.vatBps = vatBps;

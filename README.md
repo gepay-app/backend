@@ -19,7 +19,7 @@ double-entry. Dibangun sebagai *modular monolith* (satu aplikasi deploy) berbasi
 | `platform` | Fondasi bersama: response envelope, error, i18n, Redis, Quartz | ✅ stabil |
 | `identity` | Login (Firebase), user, role | ✅ stabil |
 | `ledger` | Buku besar double-entry: akun, jurnal, saldo | ✅ stabil |
-| `payment` | Alur uang: donasi, settlement, withdrawal, payout | 🟡 berjalan |
+| `payment` | Mesin pembayaran: payin, settlement, withdrawal, payout | 🟡 berjalan |
 
 Aturan besar: `payment` memutuskan **kapan** uang bergerak, tetapi **angka** hanya
 ditulis oleh `ledger` (lewat `LedgerApi`). `ledger` bersifat vendor-blind.
