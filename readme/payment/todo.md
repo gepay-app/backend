@@ -3,7 +3,7 @@
 > Kerjakan **urut dari atas ke bawah**. Setiap milestone punya hasil yang bisa kamu lihat/uji.
 > Belum lanjut ke milestone berikutnya sebelum milestone sekarang hijau.
 >
-> Sumber desain: [`payment-design.md`](./payment-design.md) · Alur dana: [`payment-example.md`](./payment-example.md) · Status: [`states.md`](./states.md) · Settlement manual: [`manual-settlement.md`](./manual-settlement.md) · Konvensi: [`AGENTS.md`](../../AGENTS.md).
+> Sumber desain: [`payment-design.md`](./payment-design.md) · Alur dana: [`payment-example.md`](./payment-example.md) · Status: [`states.md`](./states.md) · Konvensi: [`AGENTS.md`](../../AGENTS.md).
 
 ---
 
@@ -41,15 +41,53 @@
 
 ---
 
-## Milestone 3 — Settlement (Batch Berbasis Bukti)
+## Milestone 3 — Settlement Otomatis (Quartz) · mode portofolio
 
-**Hasil**: admin input bukti → batch terkonfirmasi → saldo creator `PENDING → AVAILABLE`.
+**Tujuan**: setiap hari pukul **03:00 Asia/Jakarta** satu job Quartz men-settle semua
+payment `PAID` yang sudah melewati `expected_settlement_date` (T+n hari kerja),
+lewat batch + jurnal yang tetap auditable. Hak creator `PENDING → AVAILABLE`.
+Tanpa admin, tanpa CSV.
 
-1. `SettlementRepository`, `SettlementService`.
-2. Endpoint admin (SUPER_ADMIN): `POST /api/v1/settlements` — buat batch dari bukti (provider, `actual_amount`, evidence, periode). **Default**: auto-match by rule (payment `PAID`, provider cocok, belum ada `settlement_id`, `expected_settlement_date ≤ cutoff`); transaksi **tidak** dipilih manual. Opsi `orderIds` hanya fallback untuk withdraw sebagian.
-3. `POST /api/v1/settlements/{id}/confirm` — set `CONFIRMED` + `actual_amount` + `variance`, posting **J-2** (dana ke bank) lalu **J-3** (release per creator).
-4. Job Quartz `OverdueSettlement` (monitor: payment `PAID` lewat `expected_settlement_date` belum ter-settle → alert, **tanpa jurnal**).
-5. Test: match & variance, confirm idempoten, saldo ledger benar.
+**Prasyarat**: Milestone 1 (donasi) & Milestone 2 (webhook PAID mengisi `paid_at`,
+`expected_settlement_date`, dan mem-post J-1). Tanpa itu tidak ada payment `PAID`
+untuk di-settle, dan J-3 akan mendebit akun yang belum bersaldo.
+
+**Langkah (tujuan, bukan kode)**
+
+1. Query kandidat: payment `status=PAID`, `settlement_id IS NULL`,
+   `expected_settlement_date <= cutoff` (cutoff = **hari ini**). Kelompokkan per
+   `provider_id` + `settlement_target` route.
+2. Buat satu header `settlements` per grup per run; `expected_amount` =
+   Σ `expected_settlement_amount`.
+3. Konfirmasi tanpa bukti eksternal: tandai `evidence_source` penanda sistem,
+   simpan snapshot asumsi di `raw_evidence` (cutoff, jumlah payment, Σ, versi
+   aturan). `actual_amount = expected_amount`, `variance_amount = 0` — dicatat
+   eksplisit sebagai asumsi portofolio.
+4. Tandai tiap payment `settlement_id` + `settled_at` (sekali saja).
+5. Posting jurnal via `LedgerApi`, idempoten:
+   - J-2 per batch `SETTLEMENT:{id}:CONFIRMED` (dana PG → bank).
+   - J-3 per creator `SETTLEMENT:{id}:RELEASE:{userId}` (`PENDING → AVAILABLE`).
+6. Job Quartz: `@DisallowConcurrentExecution`, cron harian 03:00 Asia/Jakarta
+   (override via env), misfire fire-and-proceed; cutoff `<= hari ini` memberi
+   catch-up otomatis.
+7. Test: hitung hari kerja (T+n + libur), seleksi kandidat, idempotensi (run dobel
+   ≠ jurnal dobel), jurnal J-2/J-3 seimbang, agregasi per creator.
+
+**Tujuan audit (WAJIB walau otomatis)**
+
+- Ledger tetap **append-only** & **balanced**; koreksi hanya lewat jurnal
+  reversal/adjustment — jangan pernah edit/hapus.
+- Setiap run meninggalkan jejak: baris `settlements` + `raw_evidence` + description
+  jurnal yang menandai asumsi sistem.
+- Sediakan jalur rekonsiliasi (walau belum diimplementasi): saat data PG asli
+  (CSV/SFTP/email) datang → `reconciliation_runs`/`items`, selisih → adjustment.
+  Tanpa ini `variance_amount` selalu 0 dan selisih nyata (fee/hold/partial) tak
+  terdeteksi.
+- Idempotency key per batch **dan** per creator (J-3).
+
+**Sengaja di-skip (dengan catatan)**: ingest CSV/email/SFTP, endpoint admin,
+otomatis-match order, bukti nyata. Produksi sesungguhnya **wajib** rekonsiliasi
+sebelum release; mode ini hanya demonstrasi pola.
 
 ---
 
@@ -83,16 +121,17 @@
 - **Webhook `permitAll` tapi wajib verifikasi signature** (jangan percaya payload).
 - **Tidak ada `@Scheduled`** — pakai Quartz (cluster-safe).
 - `payments.provider_id` snapshot diisi dari route saat create.
-- `order_id` Midtrans = `payment_attempts.id` (UUID v7), jadi CSV match 1:1.
+- `order_id` Midtrans = `payment_attempts.id` (UUID v7) — kunci matching webhook (dan report PG bila nanti dipakai) 1:1.
 - Hari libur nasional di-maintain di `payment.holidays` tiap tahun (SKB).
-- **Settlement manual**: baca [`manual-settlement.md`](./manual-settlement.md) —
-  CSV harian bukan penanda "withdrawable"; konfirmasi batch hanya dari bukti dana
-  masuk. Basis nominal sudah final: **fee PG ditanggung donatur** (§7), jadi
-  charge wajib memakai `gross_amount = gross + pg_fee`.
-- **Ingest CSV** Midtrans (`Order ID`, `Amount`, `Total Fee`, `Settlement time`)
-  perlu untuk verifikasi/`pg_fee_amount` dan deteksi order yang belum `PAID` —
-  **bukan** untuk memilih order per transaksi.
-- **Skala settlement**: pemilihan transaksi set-based (satu query/`UPDATE`), 1 batch
-  per pencairan. J-3 diposting **per creator**; saat creator banyak, pakai key
-  idempoten per creator (`…:RELEASE:{userId}`) dan chunk. Lihat
-  [`manual-settlement.md` §5.8](./manual-settlement.md).
+- **Settlement otomatis**: job Quartz harian 03:00 men-settle payment `PAID` saat
+  `expected_settlement_date` (`paid_at` + T+n **hari kerja**) terlewati; cutoff
+  `<= hari ini` sehingga settle tepat T+n (**tanpa** tambahan hari). Bacaan:
+  [`payment-design.md` §5](./payment-design.md).
+- **Basis nominal**: **fee PG ditanggung donatur**, jadi charge wajib memakai
+  `gross_amount = gross + pg_fee`; `expected_settlement_amount = gross`.
+- **Skala settlement**: pemilihan transaksi set-based, 1 batch per grup
+  (provider + `settlement_target`). J-3 diposting **per creator**; saat creator
+  banyak, pakai key idempoten per creator (`…:RELEASE:{userId}`) dan chunk.
+- **Audit**: ledger append-only; tiap batch meninggalkan `settlements` +
+  `raw_evidence`. Mode portofolio (`variance = 0`) **bukan** pengganti rekonsiliasi
+  produksi (CSV/SFTP/email).

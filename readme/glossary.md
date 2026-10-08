@@ -122,8 +122,7 @@ Daftar lengkap: [Bagian C](#bagian-c-daftar-akun-ledger).
 
 - **Platform fee** — fee yang diambil platform (bagian pendapatan kita).
 - **PG fee (gateway fee)** — biaya Midtrans. **Diputuskan ditanggung donatur**
-  (donatur bayar donasi + fee), jadi tidak mengurangi uang yang kita terima. Lihat
-  [manual-settlement §7](./payment/manual-settlement.md).
+  (donatur bayar donasi + fee), jadi tidak mengurangi uang yang kita terima.
 - **Payout fee** — biaya Flip saat mengirim uang ke creator.
 - **PPN / VAT** — pajak (Indonesia 11%), dihitung di atas fee platform.
 
@@ -145,7 +144,7 @@ Ini sumber kebingungan terbesar. Tiga hal yang berbeda:
 |---|---|---|---|
 | **A** | Status di **Midtrans**: `transaction_status = settlement`, artinya uang sudah masuk **saldo Midtrans** (bukan rekening bank) | webhook/CSV Midtrans | penanda **Paid** (kita: `payments.status=PAID`) |
 | **B** | **Withdrawable di PG**: saldo di Midtrans sudah boleh ditarik ke bank | dashboard MAP | hanya untuk **pantauan**, tidak ada kolom khusus |
-| **C** | **Settlement kita**: uang sudah benar-benar masuk rekening bank | mutasi bank / bukti | **inilah yang memicu jurnal J-2 & J-3** |
+| **C** | **Settlement kita**: uang dianggap cair (di sistem: saat T+n terlewati) | job Quartz (T+n hari kerja); bukti nyata di-skip untuk portofolio | **inilah yang memicu jurnal J-2 & J-3** |
 
 Midtrans pakai kata "settlement" untuk **A**. Jangan disamakan dengan **C**, dan
 **jangan** memakai kata "settled" untuk **A**.
@@ -155,10 +154,10 @@ Midtrans pakai kata "settlement" untuk **A**. Jangan disamakan dengan **C**, dan
 Di aplikasi, **settled** hanya berarti **C**: transaksi sudah masuk batch settlement
 yang `CONFIRMED` → hak creator pindah `PENDING → AVAILABLE` → **bisa ditarik**.
 Disimpan di `payments.settlement_id` + `payments.settled_at`. Jadi "transaksi
-settled" = "transaksi yang dananya sudah cair ke bank platform dan dana creatornya
-sudah available".
+settled" = "transaksi yang dananya sudah cair dan dana creatornya sudah available".
 
-Alur admin: [manual-settlement.md](./payment/manual-settlement.md).
+Di mode portofolio, batch `CONFIRMED` dibuat **otomatis oleh job Quartz** saat T+n
+terlewati: [payment-design.md §5](./payment/payment-design.md).
 
 ### Withdrawable
 
@@ -167,29 +166,38 @@ membedakan "Withdrawable balance" vs "Pending withdrawable balance".
 
 ### T+n hari kerja
 
-Perkiraan kapan dana PG menjadi bisa ditarik, dihitung **n hari kerja** dari
-`paid_at` (Sabtu/Minggu & libur nasional dilewati). Dipakai hanya untuk **monitor**
-(menandai yang telat), **bukan** pemicu jurnal.
+Waktu kapan dana PG dianggap bisa ditarik, dihitung **n hari kerja** dari `paid_at`
+(Sabtu/Minggu & libur nasional dilewati). Di mode portofolio, tanggal ini **memicu**
+job Quartz men-settle (J-2 & J-3).
 
 ### Evidence (bukti)
 
-Settlement tidak boleh dipicu tebakan. Wajib ada bukti:
-`API`, `REPORT_FILE` (CSV), `BANK_STATEMENT` (mutasi bank), atau `MANUAL`.
+Di produksi, settlement wajib dipicu bukti: `API`, `REPORT_FILE` (CSV),
+`BANK_STATEMENT` (mutasi bank), atau `MANUAL`. **Mode portofolio** tidak memakai
+bukti ini — settlement dipicu waktu (job Quartz) dan ditandai penanda sistem.
 
 ### Batch settlement
 
 Satu **header** `payment.settlements` yang mewakili satu pencairan dari satu
-provider. Berisi `expected_amount` (Σ transaksi yang dipilih), `actual_amount`
-(nominal bukti), dan `variance_amount` (selisihnya). 1 payment masuk 1 batch.
+provider. Berisi `expected_amount` (Σ transaksi yang dipilih), `actual_amount`,
+dan `variance_amount` (selisihnya). 1 payment masuk 1 batch.
 
-Batch dibuat **manual dari bukti**, tetapi **transaksi yang ikut dipilih otomatis
-oleh rule** (provider + `PAID` + belum ter-settle + tanggal withdrawable), bukan
-dipilih satu per satu. Satu pencairan = satu batch, berapa pun jumlah transaksinya.
+Batch dibuat **otomatis oleh job Quartz** per grup `provider + settlement_target`:
+transaksi yang ikut dipilih by rule (provider cocok + `PAID` + belum ter-settle +
+`expected_settlement_date <= cutoff`). Satu run = satu batch per grup, berapa pun
+jumlah transaksinya.
 
 ### Variance
 
 Selisih `actual_amount − expected_amount`. Idealnya 0. Kalau bukan 0, harus
 diselidiki (jangan asal dibukukan ke `FUND_TRANSFER_VARIANCE`).
+
+### Mode portofolio
+
+Build ini untuk **portofolio**, bukan produksi: tidak ada rekening bank nyata, dana
+hanya hidup di sandbox PG. Karena itu settlement dipicu **waktu (T+n)** lewat job
+Quartz, bukan bukti mutasi/report. Jurnal & ledger tetap lengkap dan auditable,
+tetapi `variance_amount` selalu 0 dan selisih nyata tidak terdeteksi.
 
 ### Vendor-blind
 

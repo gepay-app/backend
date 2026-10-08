@@ -4,8 +4,8 @@
 > yang boleh mengubahnya. Ini peta yang bikin "banyak state" jadi jelas.
 >
 > Konsep & istilah: [Glosarium](../glossary.md) · Alur uang:
-> [payment-example.md](./payment-example.md) · Operasional:
-> [manual-settlement.md](./manual-settlement.md).
+> [payment-example.md](./payment-example.md) · Settlement otomatis:
+> [payment-design.md §5](./payment-design.md).
 
 ---
 
@@ -14,8 +14,7 @@
 | Pemicu | Bahasa manusia | Contoh status yang diubah |
 |---|---|---|
 | **Webhook provider** | Midtrans/Flip mengirim kabar | `payments.status`, `payment_attempts.status` |
-| **Admin** | manusia memverifikasi bukti | `settlements.status` (konfirmasi) |
-| **Job Quartz** | tugas terjadwal/cluster | `payouts.status`, monitor overdue |
+| **Job Quartz** | settlement otomatis (T+n) & proses terjadwal | `settlements.status`, `payouts.status` |
 | **User/creator** | pengguna minta tarik dana | `withdrawals.status` |
 | **Sistem** | proses internal | pembuatan batch, idempotency |
 
@@ -83,25 +82,27 @@ Kunci matching ke webhook/CSV Midtrans: `provider_reference_id` = kolom
 
 ---
 
-## 3. `settlements.status` — batch pencairan dari PG ke bank
+## 3. `settlements.status` — batch pencairan dari PG ke bank (otomatis)
 
-Batch dibuat **manual dari bukti**, bukan dari webhook (lihat
-[manual-settlement.md](./manual-settlement.md)). Transaksi yang ikut dipilih
-otomatis by rule; admin hanya memverifikasi **total** terhadap mutasi bank.
+Batch dibuat **otomatis oleh job Quartz** (harian 03:00 Asia/Jakarta) untuk payment
+`PAID` yang sudah melewati `expected_settlement_date` (T+n hari kerja). Tidak ada
+admin; lihat [payment-design.md §5](./payment-design.md). Transaksi yang ikut dipilih
+by rule, lalu batch langsung dikonfirmasi dalam satu run.
 
 | Status | Arti awam | Yang terjadi |
 |---|---|---|
-| `PENDING` | admin baru membuat batch, belum dikonfirmasi | belum ada jurnal |
-| `CONFIRMED` | bukti dana masuk sudah diverifikasi | posting **J-2** + **J-3** |
+| `PENDING` | batch baru dibuat (transien di dalam run) | belum ada jurnal |
+| `CONFIRMED` | job menetapkan dana dianggap cair (T+n) | posting **J-2** + **J-3** |
 | `CANCELLED` | dibatalkan sebelum dana masuk | tidak ada jurnal |
 
 Method entity: `matchExpected(expectedAmount)`, `confirm(actualAmount, at)`,
-`cancel()`. `variance_amount = actual_amount − expected_amount`.
+`cancel()`. `variance_amount = actual_amount − expected_amount` (mode portofolio:
+selalu 0 karena `actual = expected`).
 
 ```
-(PENDING) ──confirm(bukti)──► CONFIRMED ──► J-2 (dana ke bank) + J-3 (creator PENDING→AVAILABLE)
+(PENDING) ──confirm(T+n)──► CONFIRMED ──► J-2 (dana ke bank) + J-3 (creator PENDING→AVAILABLE)
     │
-    └─cancel()──► CANCELLED
+    └─cancel()──► CANCELLED   (jalur otomatis tidak memakai ini)
 ```
 
 ---

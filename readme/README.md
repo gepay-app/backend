@@ -61,8 +61,8 @@ Istilah di kotak `[ ]` = akun di ledger (lihat [glossary](./glossary.md) bila pe
  2. Uang donor sudah diterima PG, tapi belum masuk bank kita
     → [PG Clearing Receivable] = "piutang kita ke Midtrans"
 
- 3. Uang benar-benar masuk rekening bank (bukti: mutasi bank)
-    → admin membuat "batch settlement", konfirmasi
+ 3. T+n hari kerja terlewati (mode portofolio: job Quartz otomatis)
+    → batch settlement dibuat & dikonfirmasi oleh job Quartz
     → ledger J-2: [Bank Operating] naik, [PG Clearing Receivable] lunas
     → ledger J-3: hak creator PENDING → AVAILABLE (boleh ditarik)
 
@@ -84,7 +84,7 @@ dan [`ledger/ledger-example.md`](./ledger/ledger-example.md).
 
 > **Perhatian**: Midtrans memakai kata `settlement` untuk **langkah 2** (uang sudah
 > masuk saldo Midtrans, kita: `PAID`), sedangkan kita memakai kata **settled** untuk
-> **langkah 3** (uang sudah masuk bank platform → hak creator `AVAILABLE`). Jadi
+> **langkah 3** (uang dianggap cair (T+n) → hak creator `AVAILABLE`). Jadi
 > `settlement` di Midtrans **bukan** "settled" versi kita. Penjelasan lengkap:
 > [Glosarium → "Settlement"](./glossary.md#settlement-punya-3-arti).
 
@@ -107,11 +107,10 @@ dan [`ledger/ledger-example.md`](./ledger/ledger-example.md).
 
 1. **[Glosarium](./glossary.md)** — semua istilah, wajib kalau bukan akuntan.
 2. **[Peta state `payment`](./payment/states.md)** — semua status & perpindahannya.
-3. **[Desain `payment`](./payment/payment-design.md)** — aturan bisnis pembayaran.
+3. **[Desain `payment`](./payment/payment-design.md)** — aturan bisnis pembayaran, termasuk settlement otomatis (Quartz).
 4. **[Contoh alur uang](./payment/payment-example.md)** — 1 contoh lengkap dengan angka & jurnal.
-5. **[Settlement manual (admin)](./payment/manual-settlement.md)** — operasional harian.
-6. **[Rencana kerja `payment`](./payment/todo.md)** — apa yang sudah/belum dibuat.
-7. Ledger (buku besar):
+5. **[Rencana kerja `payment`](./payment/todo.md)** — apa yang sudah/belum dibuat.
+6. Ledger (buku besar):
    - **[Konsep ledger](./ledger/ledger_overview.md)**
    - **[Contoh jurnal](./ledger/ledger-example.md)**
    - **[Kontrak API ledger](./ledger/ledger-design.md)**

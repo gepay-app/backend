@@ -16,7 +16,7 @@
 
 - Donatur bayar donasi **Rp 100.000** via Midtrans VA BCA, creator `USER-123`.
 - Platform fee: `PLATFORM_DONATION` = fixed 1.000 + 5% → **6.000**; PPN 11% → **660**. Net creator = 100.000 − 6.660 = **93.340**.
-- PG fee VA BCA (ditanggung donatur): fixed 4.000 + PPN 11% (440) → **4.440**. Donatur membayar **104.440**; Midtrans mengambil 4.440; **platform menerima gross 100.000**. Fee PG tidak masuk ledger (lihat [manual-settlement §7](./manual-settlement.md)).
+- PG fee VA BCA (ditanggung donatur): fixed 4.000 + PPN 11% (440) → **4.440**. Donatur membayar **104.440**; Midtrans mengambil 4.440; **platform menerima gross 100.000**. Fee PG tidak masuk ledger.
 - `channel_routes` untuk VA BCA: `settlement_delay_days=3` (3 hari kerja), `settlement_target=BANK`.
 
 ID disingkat: `PAY-1`, `ATT-1`, `SET-1`, `WD-1`, `PO-1`, `FT-1`. Jurnal: `J-1`..`J-6`.
@@ -68,20 +68,19 @@ Midtrans kirim webhook status `settlement` (+`fraud_status=accept`). Adapter mem
 
 ---
 
-## Step 2 — Settlement (Bukti: mutasi bank / konfirmasi MAP)
+## Step 2 — Settlement (otomatis via job Quartz, T+n)
 
-Midtrans cairkan Rp 100.000 ke rekening platform (pencairan manual dari MAP; **tidak ada webhook**). Admin input bukti:
-
-**Input**: `provider=MIDTRANS`, `actual_amount=100.000`, `actual_settled_at=…`,
-`evidence_source=MANUAL|BANK_STATEMENT`, `evidence_reference='<ref mutasi>'`,
-`settlement_target=BANK`, CSV order_id: `ATT-1`.
+Mode portofolio: tidak ada rekening bank nyata. Job Quartz harian (03:00
+Asia/Jakarta) melihat `expected_settlement_date` (`paid_at` + T+3 hari kerja =
+`2026-10-06`) sudah terlewati, memilih payment `PAID` yang belum ter-settle, lalu
+membuat + mengonfirmasi batch otomatis.
 
 **DB state**:
 ```sql
--- payment.settlements (batch header)
+-- payment.settlements (batch header, dibuat job)
 INSERT (id='SET-1', provider_id=1, status='CONFIRMED', expected_amount=100000,
         actual_amount=100000, variance_amount=0, settlement_target='BANK',
-        evidence_source='BANK_STATEMENT', actual_settled_at=…, confirmed_at=…);
+        evidence_source='<penanda sistem>', actual_settled_at=…, confirmed_at=…);
 
 -- payment.payments.settlement_id='SET-1', settled_at=…
 ```
@@ -93,7 +92,7 @@ INSERT (id='SET-1', provider_id=1, status='CONFIRMED', expected_amount=100000,
 | `BANK_OPERATING` (1200) | BANK-1 | DEBIT | 100.000 |
 | `PG_CLEARING_RECEIVABLE` (1100) | MIDTRANS | CREDIT | 100.000 |
 
-*(Kalau `actual != expected`, selisihnya dibukukan ke `FUND_TRANSFER_VARIANCE` (5900).)*
+*(Mode portofolio: `actual = expected`, jadi `variance = 0`. Kalau ada selisih nyata — di produksi — dibukukan ke `FUND_TRANSFER_VARIANCE` (5900).)*
 
 **Ledger Jurnal → J-3** (`SETTLEMENT:SET-1:RELEASE:USER-123`) — creator PENDING → AVAILABLE:
 
