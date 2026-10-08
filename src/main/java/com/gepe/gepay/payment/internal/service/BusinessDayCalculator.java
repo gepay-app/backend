@@ -1,7 +1,10 @@
 package com.gepe.gepay.payment.internal.service;
 
+import com.gepe.gepay.payment.internal.exception.PaymentError;
 import com.gepe.gepay.payment.internal.repository.HolidayRepository;
+import com.gepe.gepay.platform.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Service;
 
 import java.time.DayOfWeek;
@@ -23,7 +26,7 @@ public class BusinessDayCalculator {
     private final HolidayRepository holidayRepository;
 
     /** Apakah {@code date} hari kerja (bukan Sabtu/Minggu/libur nasional). */
-    public boolean isBusinessDay(LocalDate date) {
+    public boolean isBusinessDay(@NonNull LocalDate date) {
         DayOfWeek dow = date.getDayOfWeek();
         if (dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY) {
             return false;
@@ -37,7 +40,7 @@ public class BusinessDayCalculator {
      */
     public LocalDate plusBusinessDays(LocalDate from, int businessDays) {
         if (businessDays < 0) {
-            throw new IllegalArgumentException("businessDays must be >= 0, was " + businessDays);
+            throw new ServiceException(PaymentError.INVALID_BUSINESS_DAYS, businessDays);
         }
         LocalDate cursor = from;
         int remaining = businessDays;

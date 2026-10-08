@@ -36,6 +36,7 @@ class MessageSourceTest {
                 .containsExactly("i18n/messages/messages",
                         "i18n/identity/messages",     // feature module bundle (main resources)
                         "i18n/ledger/messages",       // feature module bundle (main resources)
+                        "i18n/payment/messages",      // feature module bundle (main resources)
                         "i18n/testmodule/messages");  // test fixture under src/test/resources
     }
 
@@ -50,6 +51,14 @@ class MessageSourceTest {
     void resolvesModuleKeyWithArguments() {
         assertThat(messages.getMessage("testmodule.not-found", new Object[] { "42" }, Locale.ENGLISH))
                 .isEqualTo("User with id 42 was not found");
+    }
+
+    @Test
+    void resolvesPaymentModuleKeyWithArgumentsInBothLocales() {
+        assertThat(messages.getMessage("payment.invalid_business_days", new Object[] { -1 }, Locale.ENGLISH))
+                .isEqualTo("Business days must be >= 0, was -1");
+        assertThat(messages.getMessage("payment.invalid_business_days", new Object[] { -1 }, Locale.forLanguageTag("id")))
+                .isEqualTo("Hari kerja harus >= 0, nilainya -1");
     }
 
     @Test
