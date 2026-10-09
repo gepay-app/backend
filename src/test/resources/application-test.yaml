@@ -16,3 +16,12 @@ spring:
       port: 6379
       username: root
       password: root
+
+# Nilai dummy: test tidak memanggil Midtrans. Tanpa ini, binding
+# `${PG_MIDTRANS_*}` (yang tidak di-set saat `./mvnw test`) gagal.
+pg:
+  midtrans:
+    merchant-id: test-merchant
+    client-key: test-client-key
+    server-key: test-server-key
+    url: https://api.sandbox.midtrans.com

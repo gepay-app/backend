@@ -13,8 +13,14 @@
 
 - ✅ Migrasi `V5__payment_tables.sql` (batch settlement, kebijakan per route, holidays),
   semua entity + enum, `BusinessDayCalculator`, `Holiday`, `package-info`.
-- ⬜ Repository, service, facade `PaymentApi`, controller, adapter provider, error enum,
-  i18n, test.
+- ✅ **Milestone 1** — repository, `PaymentError` + i18n, `FeeResolver` (snapshot + pembulatan
+  half-up), adapter `MidtransPayinClient`, `api/PaymentApi` + DTO, `PaymentService.createPayment`
+  (idempoten, `order_id = payment_attempts.id`), `PaymentController`; unit test.
+- ✅ **Milestone 2** — `WebhookController` → Redis Stream → `PaymentWebhookService`:
+  inbox `processed_events`, `expected_settlement_date` (T+n hari kerja), posting **J-1**
+  via `LedgerApi`, status `PAID`/`EXPIRED`/`FAILED`; unit test (jurnal seimbang).
+- ⬜ **Milestone 3** — settlement otomatis (Quartz) + J-2/J-3.
+- ⬜ Milestone 4 (withdrawal/payout) & 5 (refund/chargeback/reconciliation).
 
 ---
 
@@ -54,7 +60,7 @@ Langkah:
    `messages_id.properties`, prefix `payment.`).
 3. `FeeResolver` — resolve rate card ber-versi + override user; snapshot komponen fee;
    **policy pembulatan integer** (floor/half-up) dipilih & didokumentasikan.
-4. Adapter provider: `PaymentProviderClient` (SPI) + `ProviderEvent` +
+4. Adapter provider: `PaymentProviderClient` (SPI) + `IncomingProviderNotification` +
    `ProviderClientRegistry` + `MidtransPayinClient` (charge VA/QRIS, `verifySignature`
    SHA512 `order_id+status_code+gross_amount+serverKey`) + `FakePaymentProviderClient`.
 5. `api/PaymentApi` (facade) + DTO (`PaymentResponse`, `PaymentAttemptResponse`).
@@ -75,7 +81,7 @@ jurnal seimbang.
 Langkah:
 
 1. `WebhookController` (`/api/v1/webhooks/**`, `permitAll` + verifikasi signature) →
-   adapter → `ProviderEvent` kanonik.
+   adapter → `IncomingProviderNotification` kanonik.
 2. `WebhookService.handlePaid` — insert `processed_events` (unique
    `provider_id+external_event_id`) → lock `Payment` (`@Version`/optimistic) →
    `markPaid` + attempt `PAID` → hitung `expected_settlement_date` (hari kerja) →

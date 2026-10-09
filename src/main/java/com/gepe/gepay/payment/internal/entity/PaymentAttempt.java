@@ -75,6 +75,22 @@ public class PaymentAttempt {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    /**
+     * Percobaan bayar baru sebelum charge dikirim. ID-nya (UUID v7) dipakai
+     * sebagai {@code order_id} ke provider, jadi harus dibuat sebelum
+     * {@code createCharge} — lihat {@code readme/payment/overview.md §6}.
+     */
+    public static PaymentAttempt initiate(UUID paymentId, Long channelRouteId) {
+        PaymentAttempt a = new PaymentAttempt();
+        a.id = UuidCreator.getTimeOrderedEpoch();
+        a.paymentId = paymentId;
+        a.channelRouteId = channelRouteId;
+        a.status = PaymentAttemptStatus.INITIATED;
+        a.createdAt = Instant.now();
+        a.updatedAt = a.createdAt;
+        return a;
+    }
+
     public static PaymentAttempt create(
             UUID paymentId,
             Long channelRouteId,
@@ -82,17 +98,54 @@ public class PaymentAttempt {
             String paymentReferenceNumber,
             Instant expiresAt
     ){
-        PaymentAttempt a = new PaymentAttempt();
-        a.id = UuidCreator.getTimeOrderedEpoch();
-        a.paymentId = paymentId;
-        a.channelRouteId = channelRouteId;
+        PaymentAttempt a = initiate(paymentId, channelRouteId);
         a.providerReferenceId = providerReferenceId;
         a.paymentReferenceNumber = paymentReferenceNumber;
-        a.status = PaymentAttemptStatus.INITIATED;
         a.expiresAt = expiresAt;
-        a.createdAt = Instant.now();
-        a.updatedAt = a.createdAt;
         return a;
     }
+
+    /** Isi field hasil charge provider (reference, nomor tampil, expiry, audit payload). */
+    public void applyChargeResult(
+            String providerReferenceId,
+            String paymentReferenceNumber,
+            Instant expiresAt,
+            Map<String, Object> rawRequest,
+            Map<String, Object> rawResponse
+    ) {
+        this.providerReferenceId = providerReferenceId;
+        this.paymentReferenceNumber = paymentReferenceNumber;
+        this.expiresAt = expiresAt;
+        this.rawRequest = rawRequest;
+        this.rawResponse = rawResponse;
+        this.updatedAt = Instant.now();
+    }
+
+    public void markPending() {
+        changeStatus(PaymentAttemptStatus.PENDING);
+    }
+
+    public void markPaid() {
+        changeStatus(PaymentAttemptStatus.PAID);
+    }
+
+    public void markExpired() {
+        changeStatus(PaymentAttemptStatus.EXPIRED);
+    }
+
+    public void markFailed() {
+        changeStatus(PaymentAttemptStatus.FAILED);
+    }
+
+    private void changeStatus(PaymentAttemptStatus newStatus) {
+        if (this.status == PaymentAttemptStatus.PAID) {
+            return;
+        }
+
+        this.status = newStatus;
+        this.updatedAt = Instant.now();
+    }
+
+
 
 }

@@ -137,3 +137,12 @@ management:
     # enablement"). Set to true once a Micrometer tracing bridge / OTLP
     # exporter is added; this also avoids proxying module beans meanwhile.
     enabled: false
+
+# payment gateway provider
+pg:
+  midtrans:
+    merchant-id: ${PG_MIDTRANS_MERCHANT_ID}
+    client-key: ${PG_MIDTRANS_CLIENT_KEY}
+    server-key: ${PG_MIDTRANS_SERVER_KEY}
+    url: ${PG_MIDTRANS_URL}
+

@@ -26,20 +26,24 @@
 | `INITIATED` | pembayaran dibuat | PENDING/PAID/EXPIRED/FAILED/CANCELLED |
 | `PENDING` | dikirim ke PG, menunggu bayar | PAID/EXPIRED/FAILED/CANCELLED |
 | `PAID` | pembayar sudah bayar | (refund → lihat bawah) |
-| `EXPIRED` | waktu bayar habis | – |
-| `FAILED` | gagal di PG | – |
-| `CANCELLED` | dibatalkan | – |
+| `EXPIRED` | waktu bayar habis | PAID (bila `settlement` menyusul) |
+| `FAILED` | gagal di PG | PAID (bila `settlement` menyusul) |
+| `CANCELLED` | dibatalkan | PAID (bila `settlement` menyusul) |
 | `PARTIALLY_REFUNDED` / `REFUNDED` | enum ada, fitur refund belum | – |
 
 ```
 INITIATED ─► PENDING ─► PAID
-    │            ├─► EXPIRED
-    │            ├─► FAILED
-    │            └─► CANCELLED
+    │            ├─► EXPIRED  ─┐
+    │            ├─► FAILED   ─┼─► PAID   (settlement menyusul: webhook telat/salah urut)
+    │            └─► CANCELLED ─┘
     └────────────► (langsung PAID bila charge instan)
 
 PAID ─► PARTIALLY_REFUNDED ─► REFUNDED    (belum diimplementasikan)
 ```
+
+> **Hanya `PAID` yang final.** `settlement` yang menyusul menaikkan
+> `EXPIRED`/`FAILED`/`CANCELLED` ke `PAID` (idempotency tetap dijaga `processed_events`);
+> event telat tidak pernah menurunkan `PAID`.
 
 Method entity: `markPending()`, `markPaid(at)`, `markExpired(at)`, `markFailed()`,
 `markCancelled(at)`, `scheduleSettlement(date)`, `markSettled(settlementId, at)`.

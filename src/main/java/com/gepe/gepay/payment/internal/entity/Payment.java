@@ -234,6 +234,74 @@ public class Payment {
         return p;
     }
 
+    public void applyFeeSnapshot(
+            Long gatewayFeeConfigId,
+            Long pgFixedFeeAmount,
+            Integer pgPercentageFeeBps,
+            Long pgPercentageFeeAmount,
+            Integer pgVatBps,
+            Long pgVatAmount,
+            Long pgFeeAmount,
+            Long platformFeeConfigId,
+            Long userFeeOverrideId,
+            Long platformFixedFeeAmount,
+            Integer platformPercentageFeeBps,
+            Long platformPercentageFeeAmount,
+            Integer platformVatBps,
+            Long platformVatAmount,
+            Long platformFeeAmount,
+            Long totalChargedAmount,
+            Long netCreatorAmount,
+            Long expectedSettlementAmount
+    ) {
+        this.gatewayFeeConfigId = gatewayFeeConfigId;
+        this.pgFixedFeeAmount = pgFixedFeeAmount;
+        this.pgPercentageFeeBps = pgPercentageFeeBps;
+        this.pgPercentageFeeAmount = pgPercentageFeeAmount;
+        this.pgVatBps = pgVatBps;
+        this.pgVatAmount = pgVatAmount;
+        this.pgFeeAmount = pgFeeAmount;
+        this.platformFeeConfigId = platformFeeConfigId;
+        this.userFeeOverrideId = userFeeOverrideId;
+        this.platformFixedFeeAmount = platformFixedFeeAmount;
+        this.platformPercentageFeeBps = platformPercentageFeeBps;
+        this.platformPercentageFeeAmount = platformPercentageFeeAmount;
+        this.platformVatBps = platformVatBps;
+        this.platformVatAmount = platformVatAmount;
+        this.platformFeeAmount = platformFeeAmount;
+        this.totalChargedAmount = totalChargedAmount;
+        this.netCreatorAmount = netCreatorAmount;
+        this.expectedSettlementAmount = expectedSettlementAmount;
+    }
+
+    /**
+     * Fee platform tanpa PPN — angka yang boleh diakui sebagai pendapatan
+     * ({@code PLATFORM_FEE_REVENUE}); PPN dipisah ke {@code VAT_PAYABLE} saat J-1.
+     * {@link #platformFeeAmount} sudah termasuk {@link #platformVatAmount}.
+     */
+    public long platformFeeExcludingVat() {
+        return platformFixedFeeAmount + platformPercentageFeeAmount;
+    }
+
+    /** Data netral dari consumer (bukan payload vendor) untuk audit/jejak. */
+    public void applyMetadata(Map<String, Object> metadata) {
+        this.metadata = metadata;
+        this.updatedAt = Instant.now();
+    }
+
+    /**
+     * Hanya {@code PAID} yang benar-benar final.
+     *
+     * <p>Webhook bisa datang telat/salah urut dan notifikasi non-PAID bisa
+     * keliru, jadi {@code EXPIRED}/{@code FAILED}/{@code CANCELLED} masih boleh
+     * dinaikkan ke {@code PAID} bila event {@code settlement} menyusul — kalau
+     * tidak, uang yang benar-benar masuk akan diabaikan. Sebaliknya event telat
+     * tidak boleh menurunkan {@code PAID}.
+     */
+    public boolean isTerminal() {
+        return status == PaymentStatus.PAID;
+    }
+
     public void markPending() {
         this.status = PaymentStatus.PENDING;
         this.updatedAt = Instant.now();

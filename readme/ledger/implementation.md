@@ -11,18 +11,20 @@
 ```
 src/main/java/com/gepe/gepay/ledger/
 ├── package-info.java                    @ApplicationModule(id="ledger") — CLOSED
-├── api/
+├── api/                                 @NamedInterface("api") — seluruh subtree
 │   ├── package-info.java                @NamedInterface("api")
 │   ├── LedgerApi.java                   facade interface
 │   ├── dtos/
+│   │   ├── package-info.java            @NamedInterface("api") (bagian dari "api")
 │   │   ├── AccountDto.java              record
 │   │   ├── JournalLine.java             record
 │   │   ├── PostJournalRequest.java      record (belum dipakai)
 │   │   └── PostJournalResult.java       record
 │   └── enums/
+│       ├── package-info.java            @NamedInterface("api") (bagian dari "api")
 │       ├── AccountCode.java             sumber kebenaran Chart of Accounts
-│       ├── AccountOwnerType.java        USER | PAYMENT_PROVIDER | PAYOUT_PROVIDER | BANK
 │       ├── AccountType.java             ASSET | LIABILITY | EQUITY | REVENUE | EXPENSE
+│       ├── AccountOwnerType.java        USER | PAYMENT_PROVIDER | PAYOUT_PROVIDER | BANK
 │       ├── EntryDirection.java          DEBIT | CREDIT
 │       └── JournalReferenceType.java    PAYMENT | SETTLEMENT | WITHDRAWAL | PAYOUT
 │                                        | FUND_TRANSFER | REFUND | ADJUSTMENT
