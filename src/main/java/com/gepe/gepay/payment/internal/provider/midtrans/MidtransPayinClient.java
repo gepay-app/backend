@@ -32,14 +32,13 @@ import java.util.Map;
 @Component
 public class MidtransPayinClient implements PayinProvider {
 
-    private final String code = "MIDTRANS";
     private final RestClient midtransRestClient;
     private final ObjectMapper objectMapper;
     private final MidtransProperties properties;
 
     @Override
     public String code() {
-        return this.code;
+        return "MIDTRANS";
     }
 
     @Override
