@@ -88,4 +88,19 @@ public class PayoutDestination {
         return d;
     }
 
+    public void markDefault() {
+        this.isDefault = true;
+        this.updatedAt = Instant.now();
+    }
+
+    public void clearDefault() {
+        this.isDefault = false;
+        this.updatedAt = Instant.now();
+    }
+
+    public void deactivate() {
+        this.isActive = false;
+        this.isDefault = false;
+        this.updatedAt = Instant.now();
+    }
 }

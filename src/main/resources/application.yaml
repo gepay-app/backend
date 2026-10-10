@@ -145,4 +145,15 @@ pg:
     client-key: ${PG_MIDTRANS_CLIENT_KEY}
     server-key: ${PG_MIDTRANS_SERVER_KEY}
     url: ${PG_MIDTRANS_URL}
+  flip:
+    secret-key: ${PG_FLIP_SECRET_KEY}
+    validation-key: ${PG_FLIP_VALIDATION_KEY}
+    url: ${PG_FLIP_URL}
+
+# payment module scheduling (Quartz clustered; see readme/payment/settlement.md)
+payment:
+  settlement:
+    cron: ${PAYMENT_SETTLEMENT_CRON:0 0 3 * * ?}
+  payout:
+    cron: ${PAYMENT_PAYOUT_CRON:0 0/5 * * * ?}
 

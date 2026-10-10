@@ -109,4 +109,27 @@ public class Payout {
         return p;
     }
 
+    public void recordProviderReference(String providerReferenceId) {
+        this.providerReferenceId = providerReferenceId;
+        this.updatedAt = Instant.now();
+    }
+
+    public void recordRawPayload(Map<String, Object> rawPayload) {
+        this.rawPayload = rawPayload;
+        this.updatedAt = Instant.now();
+    }
+
+    public void markCompleted(Instant at) {
+        this.status = PayoutStatus.COMPLETED;
+        this.completedAt = at;
+        this.updatedAt = Instant.now();
+    }
+
+    public void markFailed(String failureCode, String failureReason, Instant at) {
+        this.status = PayoutStatus.FAILED;
+        this.failureCode = failureCode;
+        this.failureReason = failureReason;
+        this.completedAt = at;
+        this.updatedAt = Instant.now();
+    }
 }

@@ -123,4 +123,30 @@ public class Withdrawal {
         return w;
     }
 
+    /**
+     * Snapshot fee penarikan + net yang sampai ke rekening creator. Dipanggil
+     * setelah resolve {@code PLATFORM_WITHDRAWAL} fee supaya angka bisa diaudit.
+     */
+    public void applyFeeSnapshot(long withdrawalFeeAmount, long netDisbursementAmount) {
+        this.withdrawalFeeAmount = withdrawalFeeAmount;
+        this.netDisbursementAmount = netDisbursementAmount;
+        this.updatedAt = Instant.now();
+    }
+
+    public void markProcessing() {
+        this.status = WithdrawalStatus.PROCESSING;
+        this.updatedAt = Instant.now();
+    }
+
+    public void markPaid(Instant at) {
+        this.status = WithdrawalStatus.PAID;
+        this.completedAt = at;
+        this.updatedAt = Instant.now();
+    }
+
+    public void markFailed(Instant at) {
+        this.status = WithdrawalStatus.FAILED;
+        this.completedAt = at;
+        this.updatedAt = Instant.now();
+    }
 }

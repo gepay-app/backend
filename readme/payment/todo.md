@@ -19,8 +19,15 @@
 - ✅ **Milestone 2** — `WebhookController` → Redis Stream → `PaymentWebhookService`:
   inbox `processed_events`, `expected_settlement_date` (T+n hari kerja), posting **J-1**
   via `LedgerApi`, status `PAID`/`EXPIRED`/`FAILED`; unit test (jurnal seimbang).
-- ⬜ **Milestone 3** — settlement otomatis (Quartz) + J-2/J-3.
-- ⬜ Milestone 4 (withdrawal/payout) & 5 (refund/chargeback/reconciliation).
+- ✅ **Milestone 3** — settlement otomatis: `SettlementService`/`SettlementWriter`
+  (group per `provider_id`+`settlement_target`, batch `CONFIRMED` `evidence_source=SYSTEM`),
+  `SettlementJob` (Quartz, cron 03:00 Asia/Jakarta), posting **J-2** + **J-3** per creator;
+  unit test (idempoten, J-2/J-3 seimbang, agregasi per creator).
+- ✅ **Milestone 4** — withdrawal & payout: `WithdrawalApi`/`WithdrawalService`
+  (CRUD `payout_destinations` ownership via `CurrentUser`, hold **J-5**),
+  `FlipPayoutClient` (disburse `POST /v3/disbursement`), `PayoutService`/`PayoutWriter`
+  + `PayoutJob` (Quartz), posting **J-6**/**J-7**; unit test (saldo, idempotensi, jurnal seimbang).
+- ⬜ Milestone 5 (refund/chargeback/reconciliation/adjustment/OpenAPI) — ditunda.
 
 ---
 
@@ -168,8 +175,9 @@ Langkah:
   `PLATFORM_WITHDRAWAL`, `GATEWAY_PROCESSING`, `PAYOUT`). Pembeda produk (donasi vs
   konten) ada di kolom **`product_type`** (kode produk consumer), **bukan** di enum.
   Jangan tambahkan `PLATFORM_DONATION`/`PLATFORM_CONTENT` ke enum.
-- **`EvidenceSource` belum punya `SYSTEM`.** Untuk penanda batch otomatis, tambahkan
-  nilai `SYSTEM` di enum, atau pakai `MANUAL` — pilih sadar dan konsisten.
+- **`EvidenceSource` kini punya `SYSTEM`** — dipakai sebagai penanda batch settlement otomatis
+  (bukan bukti eksternal). Nilai `API`/`REPORT_FILE`/`BANK_STATEMENT`/`MANUAL` tetap untuk
+  jalur produksi/berbasis bukti.
 - **`JournalReferenceType` belum punya `CHARGEBACK`.** Jurnal chargeback (J-11) saat ini
   harus diposting sebagai `REFUND` atau `ADJUSTMENT`.
 - **Jangan posting J-2/J-3 tanpa J-1.** Settlement hanya untuk payment yang sudah `PAID`

@@ -131,6 +131,17 @@ public class Settlement {
         this.updatedAt = Instant.now();
     }
 
+    /**
+     * Snapshot asumsi/jejak batch (mode portofolio: tanpa bukti eksternal).
+     * Disimpan ke {@code raw_evidence} + {@code evidence_reference} supaya tiap
+     * run menyisakan jejak audit, walau konfirmasi otomatis.
+     */
+    public void recordEvidence(String evidenceReference, Map<String, Object> rawEvidence) {
+        this.evidenceReference = evidenceReference;
+        this.rawEvidence = rawEvidence;
+        this.updatedAt = Instant.now();
+    }
+
     public void confirm(long actualAmount, Instant actualSettledAt) {
         this.status = SettlementStatus.CONFIRMED;
         this.actualAmount = actualAmount;
