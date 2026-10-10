@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 public enum DonationError implements ErrorCode {
 
     PAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "donation.page_not_found"),
+    SLUG_TAKEN(HttpStatus.CONFLICT, "donation.slug_taken"),
     DONATION_NOT_FOUND(HttpStatus.NOT_FOUND, "donation.not_found"),
     OVERLAY_EVENT_NOT_FOUND(HttpStatus.NOT_FOUND, "donation.overlay_event_not_found"),
     OVERLAY_NOT_OWNED(HttpStatus.FORBIDDEN, "donation.overlay_not_owned"),

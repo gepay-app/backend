@@ -2,6 +2,7 @@ package com.gepe.gepay.donation.internal.service;
 
 import com.gepe.gepay.donation.internal.config.DonationOverlayProperties;
 import com.gepe.gepay.donation.internal.dto.CreateDonationCommand;
+import com.gepe.gepay.donation.internal.dto.CreatorDonationResponse;
 import com.gepe.gepay.donation.internal.dto.DonationResponse;
 import com.gepe.gepay.donation.internal.entity.Donation;
 import com.gepe.gepay.donation.internal.entity.DonationPage;
@@ -9,15 +10,19 @@ import com.gepe.gepay.donation.internal.entity.DonationType;
 import com.gepe.gepay.donation.internal.exception.DonationError;
 import com.gepe.gepay.donation.internal.repository.DonationRepository;
 import com.gepe.gepay.donation.internal.util.YouTubeUrlParser;
+import com.gepe.gepay.identity.api.CurrentUser;
 import com.gepe.gepay.payment.api.PaymentApi;
 import com.gepe.gepay.payment.api.dtos.CreatePaymentCommand;
 import com.gepe.gepay.payment.api.dtos.CreatePaymentResult;
 import com.gepe.gepay.platform.exception.ServiceException;
 import com.gepe.gepay.platform.exception.ValidationException;
 import com.gepe.gepay.platform.i18n.MessageHelper;
+import com.gepe.gepay.platform.web.response.PageResponse;
 import com.gepe.gepay.platform.web.response.ValidationError;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +41,7 @@ import java.util.UUID;
 public class DonationService {
 
     private static final String PAYMENT_TYPE = "DONATION";
+    private static final int MAX_PAGE_SIZE = 100;
 
     private final DonationRepository donationRepository;
     private final DonationPageService donationPageService;
@@ -43,6 +49,7 @@ public class DonationService {
     private final PaymentApi paymentApi;
     private final DonationOverlayProperties overlayProperties;
     private final MessageHelper messageHelper;
+    private final CurrentUser currentUser;
 
     public DonationResponse createDonation(CreateDonationCommand command) {
         Validated validated = validateAndParse(command);
@@ -104,6 +111,15 @@ public class DonationService {
         Donation donation = donationRepository.findById(donationId)
                 .orElseThrow(() -> new ServiceException(DonationError.DONATION_NOT_FOUND, donationId));
         return toResponse(donation);
+    }
+
+    /** Riwayat donasi creator (dashboard), terbaru lebih dulu. */
+    @Transactional(readOnly = true)
+    public PageResponse<CreatorDonationResponse> listMyDonations(int page, int size) {
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), MAX_PAGE_SIZE));
+        return PageResponse.of(
+                donationRepository.findByCreatorIdOrderByCreatedAtDesc(currentUser.userId(), pageable),
+                this::toCreatorResponse);
     }
 
     private Validated validateAndParse(CreateDonationCommand command) {
@@ -180,6 +196,23 @@ public class DonationService {
                 donation.getVideoId(),
                 donation.getPaymentReferenceNumber(),
                 donation.getPaymentExpiresAt(),
+                donation.getCreatedAt(),
+                donation.getPaidAt());
+    }
+
+    private CreatorDonationResponse toCreatorResponse(Donation donation) {
+        return new CreatorDonationResponse(
+                donation.getId(),
+                donation.getStatus().name(),
+                donation.getType().name(),
+                donation.getAmount(),
+                donation.getTotalChargedAmount(),
+                donation.getDonorName(),
+                donation.getDonorEmail(),
+                donation.isAnonymous(),
+                donation.getMessage(),
+                donation.getVideoId(),
+                donation.getChannelCode(),
                 donation.getCreatedAt(),
                 donation.getPaidAt());
     }

@@ -7,9 +7,11 @@ import java.util.UUID;
 public record PublicDonationPageResponse(
         UUID id,
         UUID creatorId,
+        String slug,
         String displayName,
         String title,
         String description,
+        String imageUrl,
         boolean active,
         Instant createdAt
 ) {

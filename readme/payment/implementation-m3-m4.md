@@ -246,7 +246,19 @@ net 87.000, fee Flip 2.500
 | POST | `/api/v1/payout-destinations/{id}/default` | – | `WithdrawalApi.setDefaultPayoutDestination` |
 | DELETE | `/api/v1/payout-destinations/{id}` | – | `WithdrawalApi.deactivatePayoutDestination` |
 | POST | `/api/v1/withdrawals` | `{idempotencyKey, destinationId, requestedAmount}` | `WithdrawalApi.createWithdrawal` |
+| GET | `/api/v1/withdrawals?page=&size=` | – | `WithdrawalApi.listWithdrawals` |
+| GET | `/api/v1/withdrawals/config?destinationId=` | – | `WithdrawalApi.getWithdrawalConfig` |
 | GET | `/api/v1/withdrawals/{id}` | – | `WithdrawalApi.getWithdrawal` |
+| GET | `/api/v1/channels?direction=PAYIN|PAYOUT` | – | `PaymentApi.listChannels` (publik) |
+| GET | `/api/v1/payments?page=&size=` | – | `PaymentApi.listPayments` (earnings, terpaginasi) |
+
+> `GET /api/v1/channels` **publik** (tanpa auth): donor memilih metode bayar
+> (`PAYIN`), creator memilih tujuan pencairan (`PAYOUT`).
+> `GET /api/v1/balance` **bukan** milik payment: saldo adalah data `ledger`, jadi
+> endpoint + DTO-nya tinggal di modul `ledger` (lihat
+> [`readme/ledger/overview.md`](../ledger/overview.md)). `WithdrawalApi` sengaja
+> tidak lagi mengekspos saldo/channel — facade tetap satu concern.
+> List memakai `PageResponse<T>` (`items/page/size/totalElements/totalPages/hasNext`).
 
 Semua respons memakai envelope `ApiResponse<T>`; pesan sukses dari `MessageHelper`
 (key i18n, bukan string hardcode).
@@ -263,7 +275,7 @@ Semua respons memakai envelope `ApiResponse<T>`; pesan sukses dari `MessageHelpe
 3. **`EvidenceSource.SYSTEM`** ditambahkan sebagai penanda batch otomatis (bukan bukti).
    Ini perubahan pada enum `api` (aditif, tidak breaking).
 4. **`identity::api`** ditambahkan ke `allowedDependencies` payment — satu-satunya
-   ketergantungan baru antar-modul.
+   ketergantungan baru payment di milestone ini.
 5. **Grouping settlement by `provider_id + settlement_target`** (bukan hanya tanggal),
    karena `settlements.settlement_target` hanya satu nilai per baris.
 6. **J-3 per creator** dengan agregasi net (`groupingBy(userId, summingLong(net))`),

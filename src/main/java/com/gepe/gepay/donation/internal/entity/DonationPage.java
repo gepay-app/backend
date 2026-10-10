@@ -31,6 +31,13 @@ public class DonationPage {
     @Column(name = "overlay_key", nullable = false, unique = true, length = 64)
     private String overlayKey;
 
+    /** Username publik untuk URL halaman (unik, lowercase). Bisa diubah creator. */
+    @Column(nullable = false, unique = true, length = 60)
+    private String slug;
+
+    @Column(name = "image_url", columnDefinition = "text")
+    private String imageUrl;
+
     @Column(name = "display_name", length = 120)
     private String displayName;
 
@@ -49,21 +56,30 @@ public class DonationPage {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    public static DonationPage create(UUID creatorId, String overlayKey) {
+    public static DonationPage create(UUID creatorId, String overlayKey, String slug) {
         DonationPage page = new DonationPage();
         page.id = UuidCreator.getTimeOrderedEpoch();
         page.creatorId = creatorId;
         page.overlayKey = overlayKey;
+        page.slug = slug;
         page.isActive = true;
         page.createdAt = Instant.now();
         page.updatedAt = page.createdAt;
         return page;
     }
 
-    public void updateProfile(String displayName, String title, String description) {
+    /**
+     * Update profil publik. {@code slug} {@code null} = pertahankan yang lama
+     * (slug wajib, tidak bisa dikosongkan).
+     */
+    public void updateProfile(String displayName, String title, String description, String imageUrl, String slug) {
         this.displayName = normalize(displayName);
         this.title = normalize(title);
         this.description = normalize(description);
+        this.imageUrl = normalize(imageUrl);
+        if (slug != null) {
+            this.slug = slug;
+        }
         this.updatedAt = Instant.now();
     }
 

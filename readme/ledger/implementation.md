@@ -81,7 +81,13 @@ long getBalanceAmount(AccountCode code, String ownerRef)
 Read path **selalu** membaca DB. Ledger **sengaja tidak di-cache** (pengecualian sadar
 terhadap `docs/agents/caching.md` §3): saldo adalah data keuangan krusial.
 
-`LedgerApiImpl` hanya mendelegasikan tiap method api ke `AccountService` / `LedgerService`.
+`LedgerApiImpl` hanya mendelegasikan tiap method api ke `AccountService` /
+`LedgerService` / `BalanceService`.
+
+`BalanceService.getUserBalance(ownerRef)` mengomposisi tiga akun liabilitas
+ber-owner `USER` (`CREATOR_PAYABLE_PENDING`, `CREATOR_PAYABLE_AVAILABLE`,
+`WITHDRAWAL_PAYABLE`) menjadi `BalanceResponse`. Akun di-provision lazy, jadi user
+baru balik `0` — bukan 404.
 
 ---
 

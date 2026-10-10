@@ -1,6 +1,7 @@
 package com.gepe.gepay.ledger.api;
 
 import com.gepe.gepay.ledger.api.dtos.AccountDto;
+import com.gepe.gepay.ledger.api.dtos.BalanceResponse;
 import com.gepe.gepay.ledger.api.dtos.JournalLine;
 import com.gepe.gepay.ledger.api.dtos.PostJournalResult;
 import com.gepe.gepay.ledger.api.enums.AccountCode;
@@ -43,4 +44,10 @@ public interface LedgerApi {
     // Balance queries (read path, cached)
     AccountDto getBalance(AccountCode code, String ownerRef);
     long getBalanceAmount(AccountCode code, String ownerRef);
+
+    /**
+     * Saldo user terkomposisi (pending / available / hold) dari akun liabilitas
+     * ber-owner {@code USER}. Akun di-provision lazy, jadi user baru balik 0.
+     */
+    BalanceResponse getUserBalance(String ownerRef);
 }

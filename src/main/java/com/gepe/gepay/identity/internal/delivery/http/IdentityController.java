@@ -3,9 +3,9 @@ package com.gepe.gepay.identity.internal.delivery.http;
 import com.gepe.gepay.identity.api.CurrentUser;
 import com.gepe.gepay.identity.api.IdentityApi;
 import com.gepe.gepay.identity.api.dtos.GrantRoleCommand;
-import com.gepe.gepay.identity.api.dtos.UserPrincipal;
-import com.gepe.gepay.identity.api.dtos.UserResponse;
 import com.gepe.gepay.identity.internal.delivery.http.req.GrantRoleReq;
+import com.gepe.gepay.identity.internal.delivery.http.res.MeRes;
+import com.gepe.gepay.identity.internal.delivery.http.res.UserRes;
 import com.gepe.gepay.platform.i18n.MessageHelper;
 import com.gepe.gepay.platform.web.response.ApiResponse;
 import jakarta.validation.Valid;
@@ -24,25 +24,25 @@ public class IdentityController {
     private final MessageHelper messageHelper;
 
     @GetMapping("/me")
-    public ResponseEntity<ApiResponse<UserPrincipal>> me() {
+    public ResponseEntity<ApiResponse<MeRes>> me() {
         return ResponseEntity.status(HttpStatus.OK)
-                .body(new ApiResponse<>(messageHelper.get("common.success"), currentUser.get()));
+                .body(new ApiResponse<>(messageHelper.get("common.success"), MeRes.from(currentUser.get())));
     }
 
     @PostMapping("/roles")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<UserResponse>> grantRole(@Valid @RequestBody GrantRoleReq req) {
-        UserResponse res = identityApi.grantRole(
-                new GrantRoleCommand(req.email(), req.role()), currentUser.userId());
+    public ResponseEntity<ApiResponse<UserRes>> grantRole(@Valid @RequestBody GrantRoleReq req) {
+        UserRes res = UserRes.from(identityApi.grantRole(
+                new GrantRoleCommand(req.email(), req.role()), currentUser.userId()));
         return ResponseEntity.status(HttpStatus.OK)
                 .body(new ApiResponse<>(messageHelper.get("common.success"), res));
     }
 
     @DeleteMapping("/roles")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<UserResponse>> revokeRole(@Valid @RequestBody GrantRoleReq req) {
-        UserResponse res = identityApi.revokeRole(
-                new GrantRoleCommand(req.email(), req.role()), currentUser.userId());
+    public ResponseEntity<ApiResponse<UserRes>> revokeRole(@Valid @RequestBody GrantRoleReq req) {
+        UserRes res = UserRes.from(identityApi.revokeRole(
+                new GrantRoleCommand(req.email(), req.role()), currentUser.userId()));
         return ResponseEntity.status(HttpStatus.OK)
                 .body(new ApiResponse<>(messageHelper.get("common.success"), res));
     }

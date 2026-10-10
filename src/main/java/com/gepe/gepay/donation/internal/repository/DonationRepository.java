@@ -1,6 +1,8 @@
 package com.gepe.gepay.donation.internal.repository;
 
 import com.gepe.gepay.donation.internal.entity.Donation;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
@@ -11,4 +13,7 @@ public interface DonationRepository extends JpaRepository<Donation, UUID> {
     Optional<Donation> findByIdempotencyKey(String idempotencyKey);
 
     Optional<Donation> findByPaymentId(UUID paymentId);
+
+    /** Riwayat donasi milik creator, terbaru lebih dulu. */
+    Page<Donation> findByCreatorIdOrderByCreatedAtDesc(UUID creatorId, Pageable pageable);
 }

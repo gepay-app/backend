@@ -2,13 +2,14 @@ package com.gepe.gepay.payment.internal.delivery.http;
 
 import com.gepe.gepay.payment.api.WithdrawalApi;
 import com.gepe.gepay.payment.api.dtos.PayoutDestinationCreateCommand;
-import com.gepe.gepay.payment.api.dtos.PayoutDestinationResponse;
 import com.gepe.gepay.payment.internal.delivery.http.req.CreatePayoutDestinationRequest;
+import com.gepe.gepay.payment.internal.delivery.http.res.PayoutDestinationRes;
 import com.gepe.gepay.platform.i18n.MessageHelper;
 import com.gepe.gepay.platform.web.response.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,35 +24,39 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/payout-destinations")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('CREATOR')")
 public class PayoutDestinationController {
 
     private final WithdrawalApi withdrawalApi;
     private final MessageHelper messageHelper;
 
     @PostMapping
-    public ResponseEntity<ApiResponse<PayoutDestinationResponse>> create(
+    public ResponseEntity<ApiResponse<PayoutDestinationRes>> create(
             @Valid @RequestBody CreatePayoutDestinationRequest request) {
-        PayoutDestinationResponse response = withdrawalApi.createPayoutDestination(
+        PayoutDestinationRes response = PayoutDestinationRes.from(withdrawalApi.createPayoutDestination(
                 new PayoutDestinationCreateCommand(
                         request.channelId(),
                         request.accountNumber(),
                         request.accountName(),
                         request.bankCode()
                 )
-        );
+        ));
         return ResponseEntity.ok(new ApiResponse<>(
                 messageHelper.get("payment.payout_destination_created"), response));
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<PayoutDestinationResponse>>> list() {
-        return ResponseEntity.ok(new ApiResponse<>(null, withdrawalApi.listPayoutDestinations()));
+    public ResponseEntity<ApiResponse<List<PayoutDestinationRes>>> list() {
+        List<PayoutDestinationRes> response = withdrawalApi.listPayoutDestinations()
+                .stream().map(PayoutDestinationRes::from).toList();
+        return ResponseEntity.ok(new ApiResponse<>(null, response));
     }
 
     @PostMapping("/{id}/default")
-    public ResponseEntity<ApiResponse<PayoutDestinationResponse>> setDefault(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<PayoutDestinationRes>> setDefault(@PathVariable UUID id) {
         return ResponseEntity.ok(new ApiResponse<>(
-                messageHelper.get("common.updated"), withdrawalApi.setDefaultPayoutDestination(id)));
+                messageHelper.get("common.updated"),
+                PayoutDestinationRes.from(withdrawalApi.setDefaultPayoutDestination(id))));
     }
 
     @DeleteMapping("/{id}")

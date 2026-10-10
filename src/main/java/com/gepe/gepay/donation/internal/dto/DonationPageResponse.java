@@ -8,9 +8,11 @@ public record DonationPageResponse(
         UUID id,
         UUID creatorId,
         String overlayKey,
+        String slug,
         String displayName,
         String title,
         String description,
+        String imageUrl,
         boolean active,
         Instant createdAt,
         Instant updatedAt

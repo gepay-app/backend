@@ -84,7 +84,7 @@ below, so **section numbers are public API too — do not renumber them**.
 | § | Topic | Detail file(s) |
 |---|---|---|
 | §1 | Project snapshot & status | [`docs/agents/snapshot.md`](docs/agents/snapshot.md) |
-| §2 | Module layout & the `api`/`internal` split (2.1–2.4) | [`docs/agents/architecture.md`](docs/agents/architecture.md) |
+| §2 | Module layout & the `api`/`internal` split (2.1–2.5) | [`docs/agents/architecture.md`](docs/agents/architecture.md) |
 | §3 | Implementation conventions (Java) | [`coding-standards.md`](docs/agents/coding-standards.md) · [`persistence.md`](docs/agents/persistence.md) · [`transactions.md`](docs/agents/transactions.md) · [`http-api.md`](docs/agents/http-api.md) · [`caching.md`](docs/agents/caching.md) · [`events-scheduling.md`](docs/agents/events-scheduling.md) |
 | §4 | Repository & resources layout | [`repository-layout.md`](docs/agents/repository-layout.md) |
 | §5 | Environment & infrastructure | [`environment.md`](docs/agents/environment.md) |

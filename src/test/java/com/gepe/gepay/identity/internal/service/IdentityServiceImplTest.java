@@ -45,14 +45,14 @@ class IdentityServiceImplTest {
     private UserRoleRepository userRoleRepository;
 
     @Test
-    void autoProvisionsNewUserAsUserOnFirstVerifiedLogin() {
+    void autoProvisionsNewUserAsUserAndCreatorOnFirstVerifiedLogin() {
         String authId = "uid-" + UUID.randomUUID();
         String email = randomEmail();
 
         UserPrincipal principal = identityApi.provisionOnFirstLogin(authId, email, "New User", true);
 
         assertThat(principal).isNotNull();
-        assertThat(principal.roles()).containsExactly(Role.USER);
+        assertThat(principal.roles()).containsExactlyInAnyOrder(Role.USER, Role.CREATOR);
         assertThat(principal.status()).isEqualTo(UserStatus.ACTIVE);
         assertThat(principal.email()).isEqualTo(email);
         assertThat(userRepository.findByAuthId(authId)).isPresent();
@@ -78,7 +78,7 @@ class IdentityServiceImplTest {
         UserPrincipal principal = identityApi.provisionOnFirstLogin(authId, seeded.getEmail(), null, true);
 
         assertThat(principal).isNotNull();
-        assertThat(principal.roles()).contains(Role.CREATOR);
+        assertThat(principal.roles()).contains(Role.CREATOR, Role.USER);
         assertThat(userRepository.findById(seeded.getId()).orElseThrow().getAuthId()).isEqualTo(authId);
     }
 
@@ -101,14 +101,16 @@ class IdentityServiceImplTest {
     void grantsAndRevokesRole() {
         String email = randomEmail();
         UserPrincipal created = identityApi.provisionOnFirstLogin("uid-" + UUID.randomUUID(), email, null, true);
+        // Provisioning sudah memberi USER + CREATOR; uji grant/revoke pakai role lain.
+        assertThat(created.roles()).containsExactlyInAnyOrder(Role.USER, Role.CREATOR);
 
         UserResponse granted = identityApi.grantRole(
-                new GrantRoleCommand(email, Role.CREATOR), created.userId());
-        assertThat(granted.roles()).contains(Role.USER, Role.CREATOR);
+                new GrantRoleCommand(email, Role.ADMIN), created.userId());
+        assertThat(granted.roles()).contains(Role.USER, Role.CREATOR, Role.ADMIN);
 
         UserResponse revoked = identityApi.revokeRole(
-                new GrantRoleCommand(email, Role.CREATOR), created.userId());
-        assertThat(revoked.roles()).containsExactly(Role.USER);
+                new GrantRoleCommand(email, Role.ADMIN), created.userId());
+        assertThat(revoked.roles()).containsExactlyInAnyOrder(Role.USER, Role.CREATOR);
     }
 
     @Test

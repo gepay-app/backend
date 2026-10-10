@@ -10,7 +10,11 @@ public interface DonationPageRepository extends JpaRepository<DonationPage, UUID
 
     Optional<DonationPage> findByCreatorId(UUID creatorId);
 
+    Optional<DonationPage> findBySlug(String slug);
+
     Optional<DonationPage> findByOverlayKey(String overlayKey);
+
+    boolean existsBySlug(String slug);
 
     boolean existsByOverlayKey(String overlayKey);
 }

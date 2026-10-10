@@ -2,10 +2,11 @@ package com.gepe.gepay.payment.internal.delivery.http;
 
 import com.gepe.gepay.payment.api.PaymentApi;
 import com.gepe.gepay.payment.api.dtos.CreatePaymentCommand;
-import com.gepe.gepay.payment.api.dtos.CreatePaymentResult;
-import com.gepe.gepay.payment.api.dtos.PaymentResponse;
 import com.gepe.gepay.payment.internal.delivery.http.req.CreatePaymentRequest;
+import com.gepe.gepay.payment.internal.delivery.http.res.CreatePaymentRes;
+import com.gepe.gepay.payment.internal.delivery.http.res.PaymentRes;
 import com.gepe.gepay.platform.web.response.ApiResponse;
+import com.gepe.gepay.platform.web.response.PageResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -21,7 +22,7 @@ public class PaymentController {
     private final PaymentApi paymentApi;
 
     @PostMapping
-    public ResponseEntity<ApiResponse<CreatePaymentResult>> createPayment(@Valid @RequestBody CreatePaymentRequest request) {
+    public ResponseEntity<ApiResponse<CreatePaymentRes>> createPayment(@Valid @RequestBody CreatePaymentRequest request) {
         CreatePaymentCommand command = new CreatePaymentCommand(
                 request.idempotencyKey(),
                 request.type(),
@@ -34,13 +35,22 @@ public class PaymentController {
                 request.metadata()
         );
 
-        CreatePaymentResult result = paymentApi.createPayment(command);
+        CreatePaymentRes result = CreatePaymentRes.from(paymentApi.createPayment(command));
         return ResponseEntity.ok(new ApiResponse<>("Payment initiated successfully", result));
     }
 
+    @GetMapping
+    public ResponseEntity<ApiResponse<PageResponse<PaymentRes>>> listPayments(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(new ApiResponse<>(
+                "Payments retrieved successfully",
+                paymentApi.listPayments(page, size).map(PaymentRes::from)));
+    }
+
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<PaymentResponse>> getPayment(@PathVariable("id") UUID paymentId) {
-        PaymentResponse response = paymentApi.getPayment(paymentId);
+    public ResponseEntity<ApiResponse<PaymentRes>> getPayment(@PathVariable("id") UUID paymentId) {
+        PaymentRes response = PaymentRes.from(paymentApi.getPayment(paymentId));
         return ResponseEntity.ok(new ApiResponse<>("Payment retrieved successfully", response));
     }
 }

@@ -1,6 +1,6 @@
 package com.gepe.gepay.donation.internal.delivery.http;
 
-import com.gepe.gepay.donation.internal.dto.OverlayQueueItem;
+import com.gepe.gepay.donation.internal.delivery.http.res.OverlayQueueItemRes;
 import com.gepe.gepay.donation.internal.entity.OverlayEventStatus;
 import com.gepe.gepay.donation.internal.service.OverlayQueueService;
 import com.gepe.gepay.identity.api.CurrentUser;
@@ -27,9 +27,10 @@ public class OverlayControlController {
     private final MessageHelper messageHelper;
 
     @GetMapping("/queue")
-    public ResponseEntity<ApiResponse<List<OverlayQueueItem>>> queue(
+    public ResponseEntity<ApiResponse<List<OverlayQueueItemRes>>> queue(
             @RequestParam(value = "status", required = false) OverlayEventStatus status) {
-        List<OverlayQueueItem> items = queueService.list(currentUser.userId(), status);
+        List<OverlayQueueItemRes> items = queueService.list(currentUser.userId(), status)
+                .stream().map(OverlayQueueItemRes::from).toList();
         return ResponseEntity.ok(new ApiResponse<>(messageHelper.get("donation.overlay_queue_retrieved"), items));
     }
 

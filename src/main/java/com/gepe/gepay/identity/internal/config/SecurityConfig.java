@@ -44,8 +44,12 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health/**").permitAll()
                         .requestMatchers("/api/v1/webhooks/**").permitAll() // buat webhook midtarans/doku/flip
+                        // Katalog channel publik (donor anonim memilih metode bayar).
+                        .requestMatchers(HttpMethod.GET, "/api/v1/channels").permitAll()
                         // Donation: donasi dibuat & status halaman donasi bisa diakses publik
-                        // (donor anonim). Endpoint owner (`/donations/me/**`) tetap butuh auth.
+                        // (donor anonim). Endpoint owner (`/donations/me/**`) tetap butuh auth,
+                        // jadi matcher authenticated harus didahulukan sebelum wildcard `/*`.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/donations/me").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/donations").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/donations/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/donation-pages/**").permitAll()

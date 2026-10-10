@@ -10,6 +10,7 @@ import com.gepe.gepay.payment.api.WithdrawalApi;
 import com.gepe.gepay.payment.api.dtos.PayoutDestinationCreateCommand;
 import com.gepe.gepay.payment.api.dtos.PayoutDestinationResponse;
 import com.gepe.gepay.payment.api.dtos.WithdrawalCreateCommand;
+import com.gepe.gepay.payment.api.dtos.WithdrawalConfigResponse;
 import com.gepe.gepay.payment.api.dtos.WithdrawalResponse;
 import com.gepe.gepay.payment.api.enums.ChannelDirection;
 import com.gepe.gepay.payment.api.enums.FeeType;
@@ -25,9 +26,12 @@ import com.gepe.gepay.payment.internal.repository.FeeConfigRepository;
 import com.gepe.gepay.payment.internal.repository.PayoutDestinationRepository;
 import com.gepe.gepay.payment.internal.repository.WithdrawalRepository;
 import com.gepe.gepay.platform.exception.ServiceException;
+import com.gepe.gepay.platform.web.response.PageResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,6 +47,8 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class WithdrawalService implements WithdrawalApi {
+
+    private static final int MAX_PAGE_SIZE = 100;
 
     private final CurrentUser currentUser;
     private final PayoutDestinationRepository payoutDestinationRepository;
@@ -63,13 +69,20 @@ public class WithdrawalService implements WithdrawalApi {
             throw new ServiceException(PaymentError.CHANNEL_NOT_PAYOUT, channel.getCode());
         }
 
+        UUID userId = currentUser.userId();
         PayoutDestination destination = PayoutDestination.create(
-                currentUser.userId(),
+                userId,
                 channel.getId(),
                 command.accountNumber(),
                 command.accountName(),
                 command.bankCode()
         );
+
+        // Rekening pertama langsung jadi default supaya user tidak perlu
+        // menandai manual sebelum bisa menarik dana.
+        if (payoutDestinationRepository.findByUserIdOrderByCreatedAtDesc(userId).isEmpty()) {
+            destination.markDefault();
+        }
         return map(payoutDestinationRepository.saveAndFlush(destination));
     }
 
@@ -188,6 +201,42 @@ public class WithdrawalService implements WithdrawalApi {
         Withdrawal withdrawal = withdrawalRepository.findById(withdrawalId)
                 .orElseThrow(() -> new ServiceException(PaymentError.WITHDRAWAL_NOT_FOUND, withdrawalId));
         return map(withdrawal);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<WithdrawalResponse> listWithdrawals(int page, int size) {
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), MAX_PAGE_SIZE));
+        return PageResponse.of(
+                withdrawalRepository.findByUserIdOrderByCreatedAtDesc(currentUser.userId(), pageable),
+                this::map);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public WithdrawalConfigResponse getWithdrawalConfig(UUID destinationId) {
+        PayoutDestination destination = ownedDestination(destinationId);
+        if (!destination.getIsActive()) {
+            throw new ServiceException(PaymentError.PAYOUT_DESTINATION_NOT_FOUND, destinationId);
+        }
+
+        ChannelRoute route = channelRouteRepository.findActiveRoute(destination.getChannelId())
+                .orElseThrow(() -> new ServiceException(PaymentError.CHANNEL_ROUTE_NOT_FOUND, destination.getChannelId()));
+
+        FeeConfig feeConfig = feeConfigRepository.findActiveConfig(
+                        FeeType.PLATFORM_WITHDRAWAL, null, null, null, Instant.now())
+                .orElseThrow(() -> {
+                    log.error("No active PLATFORM_WITHDRAWAL fee config");
+                    return new ServiceException(PaymentError.INTERNAL_ERROR);
+                });
+
+        return new WithdrawalConfigResponse(
+                route.getMinAmount(),
+                route.getMaxAmount(),
+                feeConfig.getFixedAmount(),
+                feeConfig.getPercentageBps(),
+                "IDR"
+        );
     }
 
     /** Destination milik current user; bedakan "tidak ada" vs "bukan miliknya". */

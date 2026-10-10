@@ -75,6 +75,8 @@ public class IdentityServiceImpl implements IdentityApi {
             if (user.getName() == null) {
                 user.updateProfile(name);
             }
+            // Semua pemakai login adalah creator (skip KYC untuk saat ini).
+            ensureBaselineRoles(user.getId());
             log.info("Pre-seeded user linked on first login: id={}, email={}", user.getId(), email);
             return toPrincipal(user);
         }
@@ -82,9 +84,26 @@ public class IdentityServiceImpl implements IdentityApi {
         User user = User.create(email, name);
         user.linkAuthId(authId);
         userRepository.saveAndFlush(user); // flush: unique email constraint gatuk di transaksi ini
-        userRoleRepository.save(UserRole.grant(user.getId(), toInternalRole(Role.USER), null));
+        ensureBaselineRoles(user.getId());
         log.info("User auto-provisioned on first login: id={}, email={}", user.getId(), email);
         return toPrincipal(user);
+    }
+
+    /**
+     * Role dasar tiap user: {@code USER} (aksi umum) + {@code CREATOR}
+     * (terima donasi / pencairan). KYC/approval creator di-skip untuk saat ini,
+     * jadi keduanya diberikan saat provisioning. Idempotent: role yang sudah ada
+     * tidak digrant ulang (menjaga role pre-seeded tetap utuh).
+     */
+    private void ensureBaselineRoles(UUID userId) {
+        ensureRole(userId, toInternalRole(Role.USER));
+        ensureRole(userId, toInternalRole(Role.CREATOR));
+    }
+
+    private void ensureRole(UUID userId, com.gepe.gepay.identity.internal.entity.Role role) {
+        if (!userRoleRepository.existsByUserIdAndRole(userId, role)) {
+            userRoleRepository.save(UserRole.grant(userId, role, null));
+        }
     }
 
     @Override

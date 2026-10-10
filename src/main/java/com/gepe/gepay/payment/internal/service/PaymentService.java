@@ -1,10 +1,13 @@
 package com.gepe.gepay.payment.internal.service;
 
+import com.gepe.gepay.identity.api.CurrentUser;
 import com.gepe.gepay.payment.api.PaymentApi;
+import com.gepe.gepay.payment.api.dtos.ChannelResponse;
 import com.gepe.gepay.payment.api.dtos.CreatePaymentCommand;
 import com.gepe.gepay.payment.api.dtos.CreatePaymentResult;
 import com.gepe.gepay.payment.api.dtos.PaymentAttemptResponse;
 import com.gepe.gepay.payment.api.dtos.PaymentResponse;
+import com.gepe.gepay.payment.api.enums.ChannelDirection;
 import com.gepe.gepay.payment.internal.entity.*;
 import com.gepe.gepay.payment.internal.exception.PaymentError;
 import com.gepe.gepay.payment.internal.provider.PayinProvider;
@@ -12,9 +15,12 @@ import com.gepe.gepay.payment.internal.provider.dtos.ChargeRequest;
 import com.gepe.gepay.payment.internal.provider.dtos.ChargeResult;
 import com.gepe.gepay.payment.internal.repository.*;
 import com.gepe.gepay.platform.exception.ServiceException;
+import com.gepe.gepay.platform.web.response.PageResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +37,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class PaymentService implements PaymentApi {
 
+    private static final int MAX_PAGE_SIZE = 100;
+
+    private final CurrentUser currentUser;
     private final PaymentRepository paymentRepository;
     private final PaymentAttemptRepository paymentAttemptRepository;
     private final ChannelRepository channelRepository;
@@ -177,6 +186,22 @@ public class PaymentService implements PaymentApi {
         return mapToPaymentResponse(payment);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<PaymentResponse> listPayments(int page, int size) {
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), MAX_PAGE_SIZE));
+        return PageResponse.of(
+                paymentRepository.findByUserIdOrderByCreatedAtDesc(currentUser.userId(), pageable),
+                this::mapToPaymentResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ChannelResponse> listChannels(ChannelDirection direction) {
+        return channelRepository.findByDirectionAndIsActiveTrue(direction)
+                .stream().map(this::mapToChannelResponse).toList();
+    }
+
     private CreatePaymentResult replay(Payment existing) {
         log.info("Idempotent payment creation replay: id={}, key={}", existing.getId(), existing.getIdempotencyKey());
         PaymentAttempt latestAttempt = paymentAttemptRepository.findFirstByPaymentIdOrderByCreatedAtDesc(existing.getId())
@@ -218,6 +243,16 @@ public class PaymentService implements PaymentApi {
                 a.getStatus(),
                 a.getExpiresAt(),
                 a.getCreatedAt()
+        );
+    }
+
+    private ChannelResponse mapToChannelResponse(Channel c) {
+        return new ChannelResponse(
+                c.getId(),
+                c.getCode(),
+                c.getDisplayName(),
+                c.getType(),
+                c.getDirection()
         );
     }
 }

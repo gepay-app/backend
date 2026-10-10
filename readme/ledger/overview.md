@@ -59,10 +59,19 @@ public interface LedgerApi {
     // Baca saldo (selalu dari DB, tidak di-cache)
     AccountDto getBalance(AccountCode code, String ownerRef);
     long getBalanceAmount(AccountCode code, String ownerRef);
+
+    // Saldo user terkomposisi (pending / available / hold) untuk ownerRef
+    BalanceResponse getUserBalance(String ownerRef);
 }
 ```
 
 `JournalLine` = `(AccountCode, ownerRef, DEBIT|CREDIT, amount)`.
+
+> **Endpoint saldo milik ledger.** `GET /api/v1/balance` di-serve
+> `ledger/internal/delivery/http/BalanceController`, yang meng-resolve current user
+> lewat `identity.api.CurrentUser` lalu memanggil `getUserBalance(ownerRef)`. Karena
+> itu `ledger` mendeklarasikan `allowedDependencies = "identity::api"` (satu-satunya
+> dependency lintas-modul ledger).
 
 ### Idempotency key
 

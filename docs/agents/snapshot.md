@@ -29,9 +29,9 @@ and `platform` all live under it.
 |---|---|---|---|
 | `platform` | `com.gepe.gepay.platform` | OPEN (shared) | stable — web, logging, exception, i18n, config, cache, security, modulith recovery |
 | `identity` | `com.gepe.gepay.identity` | CLOSED | stable — Firebase auth enrichment, users, roles, `CurrentUser` |
-| `ledger` | `com.gepe.gepay.ledger` | CLOSED | stable — double-entry ledger, accounts, journals |
+| `ledger` | `com.gepe.gepay.ledger` | CLOSED | stable — double-entry ledger, accounts, journals; owns `GET /api/v1/balance` (`BalanceService`, `allowedDependencies = "identity::api"`) |
 | `payment` | `com.gepe.gepay.payment` | CLOSED | in progress — generic payment engine: payin (webhook via Redis stream), settlement (T+n Quartz), withdrawal/payout; publishes `PaymentPaidEvent` after commit; refund/reconciliation/adjustment (M5) deferred |
-| `donation` | `com.gepe.gepay.donation` | CLOSED | in progress — donation pages + donations (TEXT/YOUTUBE), overlay-key rotation, `PaymentApi` consumer; no public `api` (nothing depends on it); overlay queue/WebSocket in later phases |
+| `donation` | `com.gepe.gepay.donation` | CLOSED | in progress — donation pages (slug/username + avatar, `V7`), donations (TEXT/YOUTUBE), creator donation feed (`GET /donations/me`), overlay-key rotation, `PaymentApi` consumer; no public `api` (nothing depends on it); overlay queue/WebSocket in later phases |
 
 ## Database migrations (Flyway, `src/main/resources/db/migration`)
 

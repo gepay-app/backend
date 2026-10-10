@@ -31,7 +31,8 @@ com.gepe.gepay.<module>/
 └── internal/
     ├── config/                    # module @Configuration + CacheSpec beans
     ├── delivery/http/             # @RestController (thin; delegates to api facade)
-    │   └── req/                   # request records (bean-validation constraints)
+    │   ├── req/                   # request records (bean-validation constraints)
+    │   └── res/                   # response records (HTTP view models; see §2.5)
     ├── entity/                    # JPA entities (module-private)
     ├── repository/                # Spring Data repositories (module-private)
     ├── service/                   # facade impl + business services
@@ -110,3 +111,33 @@ Only annotate a **root** module package with `@ApplicationModule`. Annotating a
 sub-package creates a *nested module*, which re-introduces access restrictions
 between what was one module. Keep the root-only rule unless a nested boundary is
 deliberately intended (and documented).
+
+## §2.5 HTTP request/response DTOs (`delivery/http/req` & `res`)
+
+`api/dtos` are the **service/cross-module contract**: services (internal) return
+and accept them, and dependent modules consume them through the facade. They are
+**not** the HTTP contract. Controllers are leaf components that live and die
+inside their own module, so each one owns its wire shapes under
+`internal/delivery/http/`:
+
+- **Request** — the controller takes a `req/*Req` record (bean-validation
+  constraints), then maps it to the module's command (an `api`/`internal` DTO)
+  before calling the service.
+- **Response** — the controller maps the service result to a `res/*Res` record
+  (suffix mirrors `req`). The `Res` is the only shape the frontend sees, so an
+  internal/api field can never leak by accident.
+
+Rules:
+
+- Put a `static from(<serviceResult>)` factory on the `Res` record; keep the
+  mapping in the `Res`, **not** in the service, so services stay HTTP-agnostic.
+- **Public (unauthenticated) endpoints expose the least.** A public `Res` carries
+  only donor/user-facing fields — never internal identifiers, fee breakdowns, or
+  secrets. Examples: `DonationRes` omits the internal `paymentId`;
+  `PublicDonationPageRes` omits `overlayKey`.
+- **Authenticated (creator/admin) endpoints may expose more** — fees, donor
+  identity, `overlayKey` are fine there (e.g. `PaymentRes`, `DonationPageRes`).
+- Lists are wrapped by `PageResponse<T>` (`platform.web.response`) with the
+  `Res` as `T` (`PageResponse.map(...)` converts an already-paged result).
+- Shared **enums** (`api/enums`) may be referenced by `res`/`req`; they are plain
+  vocabulary, not payloads.

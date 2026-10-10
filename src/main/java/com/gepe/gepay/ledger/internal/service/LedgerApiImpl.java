@@ -2,6 +2,7 @@ package com.gepe.gepay.ledger.internal.service;
 
 import com.gepe.gepay.ledger.api.LedgerApi;
 import com.gepe.gepay.ledger.api.dtos.AccountDto;
+import com.gepe.gepay.ledger.api.dtos.BalanceResponse;
 import com.gepe.gepay.ledger.api.dtos.JournalLine;
 import com.gepe.gepay.ledger.api.dtos.PostJournalResult;
 import com.gepe.gepay.ledger.api.enums.AccountCode;
@@ -18,6 +19,7 @@ public class LedgerApiImpl implements LedgerApi {
 
     private final AccountService accountService;
     private final LedgerService ledgerService;
+    private final BalanceService balanceService;
 
     @Override
     public AccountDto getOrCreateAccount(AccountCode code, String ownerRef) {
@@ -50,5 +52,10 @@ public class LedgerApiImpl implements LedgerApi {
     @Override
     public long getBalanceAmount(AccountCode code, String ownerRef) {
         return accountService.getBalanceAmount(code, ownerRef);
+    }
+
+    @Override
+    public BalanceResponse getUserBalance(String ownerRef) {
+        return balanceService.getUserBalance(ownerRef);
     }
 }

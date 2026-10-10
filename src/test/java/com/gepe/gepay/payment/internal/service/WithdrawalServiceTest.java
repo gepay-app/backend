@@ -32,6 +32,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
 
 import java.time.Instant;
 import java.util.List;
@@ -170,8 +171,21 @@ class WithdrawalServiceTest {
     }
 
     @Test
-    void setDefaultPayoutDestination_NotOwned_Throws() {
+    void listWithdrawals_MapsUserHistory() {
         when(currentUser.userId()).thenReturn(userId);
+        Withdrawal w = Withdrawal.create("WD-4", userId, destinationId, 1L, 90_000L, "570000002233331", "GePe Dev", "bri");
+        w.applyFeeSnapshot(3_000L, 87_000L);
+        when(withdrawalRepository.findByUserIdOrderByCreatedAtDesc(eq(userId), any()))
+                .thenReturn(new PageImpl<>(List.of(w)));
+
+        var result = withdrawalService.listWithdrawals(0, 20);
+
+        assertThat(result.items()).hasSize(1);
+        assertThat(result.items().get(0).idempotencyKey()).isEqualTo("WD-4");
+    }
+
+    @Test
+    void setDefaultPayoutDestination_NotOwned_Throws() {        when(currentUser.userId()).thenReturn(userId);
         PayoutDestination other = PayoutDestination.create(UUID.randomUUID(), 10L, "570000002233331", "Someone Else", "bri");
         when(payoutDestinationRepository.findById(destinationId)).thenReturn(Optional.of(other));
 
@@ -179,6 +193,59 @@ class WithdrawalServiceTest {
                 .isInstanceOf(ServiceException.class)
                 .extracting(e -> ((ServiceException) e).getErrorCode())
                 .isEqualTo(PaymentError.PAYOUT_DESTINATION_NOT_OWNED);
+    }
+
+    @Test
+    void getWithdrawalConfig_ReturnsRouteLimitsAndFee() {
+        when(currentUser.userId()).thenReturn(userId);
+        PayoutDestination destination = PayoutDestination.create(userId, 10L, "570000002233331", "GePe Dev", "bri");
+        when(payoutDestinationRepository.findById(destinationId)).thenReturn(Optional.of(destination));
+
+        ChannelRoute route = ChannelRoute.create(2L, 10L, "bri", 10_000L, 50_000_000L, 100, 0, SettlementTarget.PROVIDER_BALANCE);
+        when(channelRouteRepository.findActiveRoute(10L)).thenReturn(Optional.of(route));
+
+        FeeConfig feeConfig = FeeConfig.create(FeeType.PLATFORM_WITHDRAWAL, null, null, null, 3_000L, 100, 0, Instant.now(), null, null);
+        when(feeConfigRepository.findActiveConfig(eq(FeeType.PLATFORM_WITHDRAWAL), isNull(), isNull(), isNull(), any()))
+                .thenReturn(Optional.of(feeConfig));
+
+        var config = withdrawalService.getWithdrawalConfig(destinationId);
+
+        assertThat(config.minAmount()).isEqualTo(10_000L);
+        assertThat(config.maxAmount()).isEqualTo(50_000_000L);
+        assertThat(config.fixedFee()).isEqualTo(3_000L);
+        assertThat(config.feePercentageBps()).isEqualTo(100);
+        assertThat(config.currency()).isEqualTo("IDR");
+    }
+
+    @Test
+    void createPayoutDestination_FirstBecomesDefault() {
+        when(currentUser.userId()).thenReturn(userId);
+        Channel channel = Channel.create("BANK_BRI", "BRI", ChannelType.PAYOUT_BANK, ChannelDirection.PAYOUT);
+        when(channelRepository.findById(10L)).thenReturn(Optional.of(channel));
+        when(payoutDestinationRepository.findByUserIdOrderByCreatedAtDesc(userId)).thenReturn(List.of());
+        when(payoutDestinationRepository.saveAndFlush(any(PayoutDestination.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        var response = withdrawalService.createPayoutDestination(
+                new PayoutDestinationCreateCommand(10L, "570000002233331", "GePe Dev", "BRI"));
+
+        assertThat(response.isDefault()).isTrue();
+    }
+
+    @Test
+    void createPayoutDestination_SecondNotDefault() {
+        when(currentUser.userId()).thenReturn(userId);
+        Channel channel = Channel.create("BANK_BRI", "BRI", ChannelType.PAYOUT_BANK, ChannelDirection.PAYOUT);
+        when(channelRepository.findById(10L)).thenReturn(Optional.of(channel));
+        PayoutDestination existing = PayoutDestination.create(userId, 10L, "570000002233331", "GePe Dev", "BRI");
+        when(payoutDestinationRepository.findByUserIdOrderByCreatedAtDesc(userId)).thenReturn(List.of(existing));
+        when(payoutDestinationRepository.saveAndFlush(any(PayoutDestination.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        var response = withdrawalService.createPayoutDestination(
+                new PayoutDestinationCreateCommand(10L, "1234567890", "GePe Dev 2", "BRI"));
+
+        assertThat(response.isDefault()).isFalse();
     }
 
     private AccountDto account(AccountCode code, long balance) {

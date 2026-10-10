@@ -13,7 +13,7 @@
 |---------------|------------------------------------------------------------------|
 | `SUPER_ADMIN` | Pemilik platform. Satu-satunya yang boleh grant/revoke role.     |
 | `ADMIN`       | Operator platform (belum dipakai untuk gate endpoint saat ini).  |
-| `CREATOR`     | Content creator yang jual konten / terima donasi.                |
+| `CREATOR`     | Content creator yang jual konten / terima donasi. Diberikan otomatis saat provisioning (KYC di-skip). |
 | `USER`        | User biasa (donor/pembeli). Diberikan otomatis saat signup.      |
 
 Semua role bersifat **global** — tidak ada `branch_id`, tidak ada invariant
@@ -30,8 +30,10 @@ overlay, dsb. adalah modul terpisah nanti.
 - **Beli konten / aksi creator wajib login** → endpoint-nya `authenticated`.
 - **User biasa self-register**: frontend bikin akun Firebase, lalu request
   pertama yang terautentikasi memicu `provisionOnFirstLogin` → baris
-  `identity.users` + role `USER` dibuat otomatis (JIT provisioning).
-- **Admin/creator** dibuat dengan cara: login seperti user biasa dulu, lalu
+  `identity.users` + role `USER` **dan** `CREATOR` dibuat otomatis (JIT
+  provisioning). KYC/approval creator **di-skip** untuk saat ini (portofolio),
+  jadi setiap user langsung bisa menerima donasi & menarik dana.
+- **Admin** dibuat dengan cara: login seperti user biasa dulu, lalu
   `SUPER_ADMIN` grant role-nya (`POST /roles`). Tidak ada lagi endpoint
   *invite* dan tidak ada pembuatan akun Firebase dari backend.
 
@@ -132,7 +134,7 @@ Kalau V3 sudah jalan di suatu DB: drop schema `identity` + hapus baris V3 dari
                            emailVerified?  tidak → 401
                            by authId?      → user itu
                            by email?       → link + pertahankan role (baris pre-seeded)
-                           tidak ada?      → buat user + role USER
+                           tidak ada?      → buat user + role USER & CREATOR
                            (kalau akun DISABLED → 403 identity.user.disabled)
 4. Principal dipasang ke SecurityContext, role jadi authority ROLE_<ROLE>.
 5. 200 → simpan principal di state → lanjut.
@@ -153,13 +155,14 @@ Request berikutnya me-resolve principal lewat cache Redis
 | POST   | `/api/v1/identities/roles`    | SUPER_ADMIN   | Grant role (`{email, role}`)             |
 | DELETE | `/api/v1/identities/roles`    | SUPER_ADMIN   | Revoke role (`{email, role}`)            |
 
-Contoh grant creator:
+Contoh grant role (`CREATOR` & `USER` sudah otomatis saat login; endpoint ini
+untuk role tambahan seperti `ADMIN`):
 
 ```bash
 curl -X POST localhost:8080/api/v1/identities/roles \
   -H "Authorization: Bearer <SUPER_ADMIN token>" \
   -H 'Content-Type: application/json' \
-  -d '{"email":"creator@example.com","role":"CREATOR"}'
+  -d '{"email":"admin@example.com","role":"ADMIN"}'
 ```
 
 Request DTO ada di `internal/delivery/http/req/GrantRoleReq.java`; command-nya
@@ -265,5 +268,7 @@ identity/
   `hasRole('USER')`.
 - **Aksi creator** — `@PreAuthorize("hasRole('CREATOR')")`; authz kepemilikan
   resource spesifik di service via `CurrentUser`.
-- **Grant creator** — `SUPER_ADMIN` panggil `POST /roles` dengan role
-  `CREATOR` (atau nanti lewat halaman admin / onboarding).
+- **Creator otomatis** — tiap user dapat role `CREATOR` saat provisioning
+  (§0), tanpa KYC. Kalau nanti KYC diaktifkan, pindahkan pemberian `CREATOR`
+  ke jalur approval (mis. `POST /roles` oleh `SUPER_ADMIN` atau listener
+  onboarding).

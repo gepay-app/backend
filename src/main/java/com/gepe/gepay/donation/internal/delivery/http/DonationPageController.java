@@ -1,9 +1,9 @@
 package com.gepe.gepay.donation.internal.delivery.http;
 
 import com.gepe.gepay.donation.internal.delivery.http.req.UpdateDonationPageReq;
-import com.gepe.gepay.donation.internal.dto.DonationPageResponse;
-import com.gepe.gepay.donation.internal.dto.PublicDonationPageResponse;
-import com.gepe.gepay.donation.internal.dto.RotateOverlayKeyResponse;
+import com.gepe.gepay.donation.internal.delivery.http.res.DonationPageRes;
+import com.gepe.gepay.donation.internal.delivery.http.res.PublicDonationPageRes;
+import com.gepe.gepay.donation.internal.delivery.http.res.RotateOverlayKeyRes;
 import com.gepe.gepay.donation.internal.dto.UpdateDonationPageCommand;
 import com.gepe.gepay.donation.internal.service.DonationPageService;
 import com.gepe.gepay.platform.i18n.MessageHelper;
@@ -13,11 +13,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.UUID;
-
 /**
  * Endpoint halaman donasi: milik sendiri ({@code /donations/me/page}, auth) dan
- * publik ({@code /donation-pages/{creatorId}}, tanpa auth).
+ * publik ({@code /donation-pages/{slug}}, tanpa auth).
  */
 @RestController
 @RequiredArgsConstructor
@@ -28,31 +26,31 @@ public class DonationPageController {
     private final MessageHelper messageHelper;
 
     @GetMapping("/donations/me/page")
-    public ResponseEntity<ApiResponse<DonationPageResponse>> myPage() {
+    public ResponseEntity<ApiResponse<DonationPageRes>> myPage() {
         return ResponseEntity.ok(new ApiResponse<>(
                 messageHelper.get("common.success"),
-                donationPageService.getOrCreateMyPage()));
+                DonationPageRes.from(donationPageService.getOrCreateMyPage())));
     }
 
     @PutMapping("/donations/me/page")
-    public ResponseEntity<ApiResponse<DonationPageResponse>> updateMyPage(@Valid @RequestBody UpdateDonationPageReq req) {
-        DonationPageResponse response = donationPageService.updateMyPage(
-                new UpdateDonationPageCommand(req.displayName(), req.title(), req.description()));
+    public ResponseEntity<ApiResponse<DonationPageRes>> updateMyPage(@Valid @RequestBody UpdateDonationPageReq req) {
+        DonationPageRes response = DonationPageRes.from(donationPageService.updateMyPage(
+                new UpdateDonationPageCommand(
+                        req.displayName(), req.title(), req.description(), req.imageUrl(), req.slug())));
         return ResponseEntity.ok(new ApiResponse<>(messageHelper.get("donation.page_updated"), response));
     }
 
     @PostMapping("/donations/me/page/overlay-key/rotate")
-    public ResponseEntity<ApiResponse<RotateOverlayKeyResponse>> rotateOverlayKey() {
-        String overlayKey = donationPageService.rotateOverlayKey();
+    public ResponseEntity<ApiResponse<RotateOverlayKeyRes>> rotateOverlayKey() {
+        RotateOverlayKeyRes response = new RotateOverlayKeyRes(donationPageService.rotateOverlayKey());
         return ResponseEntity.ok(new ApiResponse<>(
-                messageHelper.get("donation.overlay_key_rotated"),
-                new RotateOverlayKeyResponse(overlayKey)));
+                messageHelper.get("donation.overlay_key_rotated"), response));
     }
 
-    @GetMapping("/donation-pages/{creatorId}")
-    public ResponseEntity<ApiResponse<PublicDonationPageResponse>> publicPage(@PathVariable("creatorId") UUID creatorId) {
+    @GetMapping("/donation-pages/{slug}")
+    public ResponseEntity<ApiResponse<PublicDonationPageRes>> publicPage(@PathVariable("slug") String slug) {
         return ResponseEntity.ok(new ApiResponse<>(
                 messageHelper.get("common.success"),
-                donationPageService.getPublicPage(creatorId)));
+                PublicDonationPageRes.from(donationPageService.getPublicPageBySlug(slug))));
     }
 }

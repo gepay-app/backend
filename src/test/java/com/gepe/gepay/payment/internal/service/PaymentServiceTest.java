@@ -1,7 +1,9 @@
 package com.gepe.gepay.payment.internal.service;
 
+import com.gepe.gepay.identity.api.CurrentUser;
 import com.gepe.gepay.payment.api.dtos.CreatePaymentCommand;
 import com.gepe.gepay.payment.api.dtos.CreatePaymentResult;
+import com.gepe.gepay.payment.api.enums.ChannelDirection;
 import com.gepe.gepay.payment.api.enums.ChannelType;
 import com.gepe.gepay.payment.api.enums.PaymentStatus;
 import com.gepe.gepay.payment.api.enums.SettlementTarget;
@@ -14,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
 
 import java.time.Instant;
 import java.util.List;
@@ -30,6 +33,8 @@ class PaymentServiceTest {
 
     @Mock
     private PaymentRepository paymentRepository;
+    @Mock
+    private CurrentUser currentUser;
     @Mock
     private PaymentAttemptRepository paymentAttemptRepository;
     @Mock
@@ -53,6 +58,7 @@ class PaymentServiceTest {
     void setUp() {
         userId = UUID.randomUUID();
         paymentService = new PaymentService(
+                currentUser,
                 paymentRepository,
                 paymentAttemptRepository,
                 channelRepository,
@@ -134,5 +140,34 @@ class PaymentServiceTest {
         assertThat(result.attempt().providerReferenceId()).isEqualTo("MID-TRX-OLD");
         verify(payinProvider, never()).createCharge(any());
         verify(paymentRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void listPayments_MapsCurrentUserPayments() {
+        when(currentUser.userId()).thenReturn(userId);
+        Payment payment = Payment.create("IDEM-200", "DONATION", userId, null, 1L, 1L, 1L, 100_000L);
+        when(paymentRepository.findByUserIdOrderByCreatedAtDesc(eq(userId), any()))
+                .thenReturn(new PageImpl<>(List.of(payment)));
+
+        var result = paymentService.listPayments(0, 20);
+
+        assertThat(result.items()).hasSize(1);
+        assertThat(result.items().get(0).idempotencyKey()).isEqualTo("IDEM-200");
+        assertThat(result.items().get(0).userId()).isEqualTo(userId);
+        assertThat(result.totalElements()).isEqualTo(1);
+    }
+
+    @Test
+    void listChannels_ReturnsActiveChannels() {
+        Channel channel = Channel.create(
+                "BANK_BRI", "Transfer Bank BRI", ChannelType.PAYOUT_BANK, ChannelDirection.PAYOUT);
+        when(channelRepository.findByDirectionAndIsActiveTrue(ChannelDirection.PAYOUT))
+                .thenReturn(List.of(channel));
+
+        var result = paymentService.listChannels(ChannelDirection.PAYOUT);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).code()).isEqualTo("BANK_BRI");
+        assertThat(result.get(0).direction()).isEqualTo(ChannelDirection.PAYOUT);
     }
 }

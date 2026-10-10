@@ -5,7 +5,9 @@ import com.gepe.gepay.donation.internal.dto.CreateDonationCommand;
 import com.gepe.gepay.donation.internal.dto.DonationResponse;
 import com.gepe.gepay.donation.internal.entity.Donation;
 import com.gepe.gepay.donation.internal.entity.DonationPage;
+import com.gepe.gepay.donation.internal.entity.DonationType;
 import com.gepe.gepay.donation.internal.repository.DonationRepository;
+import com.gepe.gepay.identity.api.CurrentUser;
 import com.gepe.gepay.payment.api.PaymentApi;
 import com.gepe.gepay.payment.api.dtos.CreatePaymentCommand;
 import com.gepe.gepay.payment.api.dtos.CreatePaymentResult;
@@ -22,8 +24,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
@@ -31,6 +35,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -47,6 +52,8 @@ class DonationServiceTest {
     private PaymentApi paymentApi;
     @Mock
     private MessageHelper messageHelper;
+    @Mock
+    private CurrentUser currentUser;
 
     private DonationService donationService;
 
@@ -58,7 +65,8 @@ class DonationServiceTest {
                 donationWriter,
                 paymentApi,
                 new DonationOverlayProperties(),
-                messageHelper);
+                messageHelper,
+                currentUser);
     }
 
     @Test
@@ -95,7 +103,7 @@ class DonationServiceTest {
     void createsPendingDonationAndCallsPaymentWithDonationTarget() {
         UUID creatorId = UUID.randomUUID();
         UUID paymentId = UUID.randomUUID();
-        DonationPage page = DonationPage.create(creatorId, "OVERLAY-KEY");
+        DonationPage page = DonationPage.create(creatorId, "OVERLAY-KEY", "creator-slug");
 
         when(donationRepository.findByIdempotencyKey("idem-1")).thenReturn(Optional.empty());
         when(donationPageService.requireByCreatorId(creatorId)).thenReturn(page);
@@ -131,6 +139,24 @@ class DonationServiceTest {
         assertThat(paymentCommand.amount()).isEqualTo(50_000L);
         assertThat(paymentCommand.idempotencyKey()).isEqualTo("DONATION:" + draftRef.get().getId());
         assertThat(paymentCommand.metadata()).containsEntry("donationId", draftRef.get().getId().toString());
+    }
+
+    @Test
+    void listMyDonations_MapsCreatorHistory() {
+        UUID creatorId = UUID.randomUUID();
+        when(currentUser.userId()).thenReturn(creatorId);
+        Donation donation = Donation.create(
+                UUID.randomUUID(), creatorId, "idem-list", "VA_BCA",
+                "Budi", "budi@example.com", 50_000L, DonationType.TEXT, "halo", null, false);
+        when(donationRepository.findByCreatorIdOrderByCreatedAtDesc(eq(creatorId), any()))
+                .thenReturn(new PageImpl<>(List.of(donation)));
+
+        var result = donationService.listMyDonations(0, 20);
+
+        assertThat(result.items()).hasSize(1);
+        assertThat(result.items().get(0).donorName()).isEqualTo("Budi");
+        assertThat(result.items().get(0).message()).isEqualTo("halo");
+        assertThat(result.totalElements()).isEqualTo(1);
     }
 
     private void assertValidationField(CreateDonationCommand command, String field) {

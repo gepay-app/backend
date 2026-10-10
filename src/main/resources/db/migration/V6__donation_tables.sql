@@ -7,19 +7,23 @@ CREATE SCHEMA IF NOT EXISTS donation;
 -- Satu creator = satu halaman donasi (1:1). creator_id = userId (identity.users.id),
 -- disimpan sebagai UUID tanpa FK lintas modul (AGENTS.md §3 persistence).
 -- overlay_key = RAHASIA untuk display OBS; bisa dirotasi creator (regenerate).
+-- slug = username publik (unik, lowercase) untuk URL halaman; image_url = avatar creator.
 CREATE TABLE donation.donation_pages
 (
     id           UUID         PRIMARY KEY,
     creator_id   UUID         NOT NULL,
     overlay_key  VARCHAR(64)  NOT NULL,
+    slug         VARCHAR(60)  NOT NULL,
     display_name VARCHAR(120),
     title        VARCHAR(200),
     description  TEXT,
+    image_url    TEXT,
     is_active    BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
     CONSTRAINT ux_donation_pages_creator     UNIQUE (creator_id),
-    CONSTRAINT ux_donation_pages_overlay_key UNIQUE (overlay_key)
+    CONSTRAINT ux_donation_pages_overlay_key UNIQUE (overlay_key),
+    CONSTRAINT ux_donation_pages_slug        UNIQUE (slug)
 );
 
 -- Satu baris = satu donasi. Tujuan/penerima = creator_id. payment_id = referensi
