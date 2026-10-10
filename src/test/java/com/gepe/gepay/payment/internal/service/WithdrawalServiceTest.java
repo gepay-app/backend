@@ -32,7 +32,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.PageImpl;
 
 import java.time.Instant;
 import java.util.List;
@@ -175,13 +174,14 @@ class WithdrawalServiceTest {
         when(currentUser.userId()).thenReturn(userId);
         Withdrawal w = Withdrawal.create("WD-4", userId, destinationId, 1L, 90_000L, "570000002233331", "GePe Dev", "bri");
         w.applyFeeSnapshot(3_000L, 87_000L);
-        when(withdrawalRepository.findByUserIdOrderByCreatedAtDesc(eq(userId), any()))
-                .thenReturn(new PageImpl<>(List.of(w)));
+        when(withdrawalRepository.findByUserIdOrderByIdDesc(eq(userId), any()))
+                .thenReturn(List.of(w));
 
-        var result = withdrawalService.listWithdrawals(0, 20);
+        var result = withdrawalService.listWithdrawals(null, 20);
 
         assertThat(result.items()).hasSize(1);
         assertThat(result.items().get(0).idempotencyKey()).isEqualTo("WD-4");
+        assertThat(result.hasNext()).isFalse();
     }
 
     @Test

@@ -17,12 +17,11 @@ import com.gepe.gepay.payment.api.dtos.CreatePaymentResult;
 import com.gepe.gepay.platform.exception.ServiceException;
 import com.gepe.gepay.platform.exception.ValidationException;
 import com.gepe.gepay.platform.i18n.MessageHelper;
-import com.gepe.gepay.platform.web.response.PageResponse;
+import com.gepe.gepay.platform.web.response.CursorPage;
 import com.gepe.gepay.platform.web.response.ValidationError;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -113,13 +112,16 @@ public class DonationService {
         return toResponse(donation);
     }
 
-    /** Riwayat donasi creator (dashboard), terbaru lebih dulu. */
+    /** Riwayat donasi creator (dashboard), keyset by id (cursor). */
     @Transactional(readOnly = true)
-    public PageResponse<CreatorDonationResponse> listMyDonations(int page, int size) {
-        Pageable pageable = PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), MAX_PAGE_SIZE));
-        return PageResponse.of(
-                donationRepository.findByCreatorIdOrderByCreatedAtDesc(currentUser.userId(), pageable),
-                this::toCreatorResponse);
+    public CursorPage<CreatorDonationResponse> listMyDonations(UUID cursor, int size) {
+        int limit = Math.min(Math.max(1, size), MAX_PAGE_SIZE);
+        UUID creatorId = currentUser.userId();
+        List<Donation> rows = (cursor == null)
+                ? donationRepository.findByCreatorIdOrderByIdDesc(creatorId, Limit.of(limit + 1))
+                : donationRepository.findByCreatorIdAndIdLessThanOrderByIdDesc(creatorId, cursor, Limit.of(limit + 1));
+        return CursorPage.of(rows, limit, d -> d.getId().toString())
+                .map(this::toCreatorResponse);
     }
 
     private Validated validateAndParse(CreateDonationCommand command) {

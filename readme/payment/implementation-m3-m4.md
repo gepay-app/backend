@@ -246,11 +246,11 @@ net 87.000, fee Flip 2.500
 | POST | `/api/v1/payout-destinations/{id}/default` | – | `WithdrawalApi.setDefaultPayoutDestination` |
 | DELETE | `/api/v1/payout-destinations/{id}` | – | `WithdrawalApi.deactivatePayoutDestination` |
 | POST | `/api/v1/withdrawals` | `{idempotencyKey, destinationId, requestedAmount}` | `WithdrawalApi.createWithdrawal` |
-| GET | `/api/v1/withdrawals?page=&size=` | – | `WithdrawalApi.listWithdrawals` |
+| GET | `/api/v1/withdrawals?cursor=&size=` | – | `WithdrawalApi.listWithdrawals` |
 | GET | `/api/v1/withdrawals/config?destinationId=` | – | `WithdrawalApi.getWithdrawalConfig` |
 | GET | `/api/v1/withdrawals/{id}` | – | `WithdrawalApi.getWithdrawal` |
 | GET | `/api/v1/channels?direction=PAYIN|PAYOUT` | – | `PaymentApi.listChannels` (publik) |
-| GET | `/api/v1/payments?page=&size=` | – | `PaymentApi.listPayments` (earnings, terpaginasi) |
+| GET | `/api/v1/payments?cursor=&size=` | – | `PaymentApi.listPayments` (earnings, cursor-paginated) |
 
 > `GET /api/v1/channels` **publik** (tanpa auth): donor memilih metode bayar
 > (`PAYIN`), creator memilih tujuan pencairan (`PAYOUT`).
@@ -258,7 +258,7 @@ net 87.000, fee Flip 2.500
 > endpoint + DTO-nya tinggal di modul `ledger` (lihat
 > [`readme/ledger/overview.md`](../ledger/overview.md)). `WithdrawalApi` sengaja
 > tidak lagi mengekspos saldo/channel — facade tetap satu concern.
-> List memakai `PageResponse<T>` (`items/page/size/totalElements/totalPages/hasNext`).
+> List memakai `CursorPage<T>` (`items/hasNext/nextCursor`) — keyset by id (`?cursor=<nextCursor>`).
 
 Semua respons memakai envelope `ApiResponse<T>`; pesan sukses dari `MessageHelper`
 (key i18n, bukan string hardcode).

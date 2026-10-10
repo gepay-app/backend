@@ -15,12 +15,11 @@ import com.gepe.gepay.payment.internal.provider.dtos.ChargeRequest;
 import com.gepe.gepay.payment.internal.provider.dtos.ChargeResult;
 import com.gepe.gepay.payment.internal.repository.*;
 import com.gepe.gepay.platform.exception.ServiceException;
-import com.gepe.gepay.platform.web.response.PageResponse;
+import com.gepe.gepay.platform.web.response.CursorPage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -188,11 +187,14 @@ public class PaymentService implements PaymentApi {
 
     @Override
     @Transactional(readOnly = true)
-    public PageResponse<PaymentResponse> listPayments(int page, int size) {
-        Pageable pageable = PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), MAX_PAGE_SIZE));
-        return PageResponse.of(
-                paymentRepository.findByUserIdOrderByCreatedAtDesc(currentUser.userId(), pageable),
-                this::mapToPaymentResponse);
+    public CursorPage<PaymentResponse> listPayments(UUID cursor, int size) {
+        int limit = Math.min(Math.max(1, size), MAX_PAGE_SIZE);
+        UUID userId = currentUser.userId();
+        List<Payment> rows = (cursor == null)
+                ? paymentRepository.findByUserIdOrderByIdDesc(userId, Limit.of(limit + 1))
+                : paymentRepository.findByUserIdAndIdLessThanOrderByIdDesc(userId, cursor, Limit.of(limit + 1));
+        return CursorPage.of(rows, limit, p -> p.getId().toString())
+                .map(this::mapToPaymentResponse);
     }
 
     @Override

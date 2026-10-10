@@ -137,7 +137,8 @@ Rules:
   `PublicDonationPageRes` omits `overlayKey`.
 - **Authenticated (creator/admin) endpoints may expose more** — fees, donor
   identity, `overlayKey` are fine there (e.g. `PaymentRes`, `DonationPageRes`).
-- Lists are wrapped by `PageResponse<T>` (`platform.web.response`) with the
-  `Res` as `T` (`PageResponse.map(...)` converts an already-paged result).
+- Lists are wrapped by `CursorPage<T>` (`platform.web.response`) with the `Res` as
+  `T` (`CursorPage.map(...)` converts an already-fetched page). Pagination is
+  keyset/cursor-based — see §3 `http-api.md` (Pagination).
 - Shared **enums** (`api/enums`) may be referenced by `res`/`req`; they are plain
   vocabulary, not payloads.

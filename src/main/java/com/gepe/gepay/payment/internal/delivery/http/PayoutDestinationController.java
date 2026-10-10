@@ -6,6 +6,9 @@ import com.gepe.gepay.payment.internal.delivery.http.req.CreatePayoutDestination
 import com.gepe.gepay.payment.internal.delivery.http.res.PayoutDestinationRes;
 import com.gepe.gepay.platform.i18n.MessageHelper;
 import com.gepe.gepay.platform.web.response.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -25,12 +28,15 @@ import java.util.UUID;
 @RequestMapping("/api/v1/payout-destinations")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('CREATOR')")
+@Tag(name = "Payout destinations", description = "Creator bank accounts for withdrawals (CREATOR only)")
+@SecurityRequirement(name = "bearerAuth")
 public class PayoutDestinationController {
 
     private final WithdrawalApi withdrawalApi;
     private final MessageHelper messageHelper;
 
     @PostMapping
+    @Operation(summary = "Add a payout destination (first one becomes default)")
     public ResponseEntity<ApiResponse<PayoutDestinationRes>> create(
             @Valid @RequestBody CreatePayoutDestinationRequest request) {
         PayoutDestinationRes response = PayoutDestinationRes.from(withdrawalApi.createPayoutDestination(
@@ -46,6 +52,7 @@ public class PayoutDestinationController {
     }
 
     @GetMapping
+    @Operation(summary = "List my payout destinations, newest first")
     public ResponseEntity<ApiResponse<List<PayoutDestinationRes>>> list() {
         List<PayoutDestinationRes> response = withdrawalApi.listPayoutDestinations()
                 .stream().map(PayoutDestinationRes::from).toList();
@@ -53,6 +60,7 @@ public class PayoutDestinationController {
     }
 
     @PostMapping("/{id}/default")
+    @Operation(summary = "Set the default payout destination")
     public ResponseEntity<ApiResponse<PayoutDestinationRes>> setDefault(@PathVariable UUID id) {
         return ResponseEntity.ok(new ApiResponse<>(
                 messageHelper.get("common.updated"),
@@ -60,6 +68,7 @@ public class PayoutDestinationController {
     }
 
     @DeleteMapping("/{id}")
+    @Operation(summary = "Deactivate a payout destination")
     public ResponseEntity<ApiResponse<Void>> deactivate(@PathVariable UUID id) {
         withdrawalApi.deactivatePayoutDestination(id);
         return ResponseEntity.ok(new ApiResponse<>(

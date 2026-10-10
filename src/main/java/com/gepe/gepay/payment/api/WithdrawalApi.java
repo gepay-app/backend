@@ -5,7 +5,7 @@ import com.gepe.gepay.payment.api.dtos.PayoutDestinationResponse;
 import com.gepe.gepay.payment.api.dtos.WithdrawalCreateCommand;
 import com.gepe.gepay.payment.api.dtos.WithdrawalConfigResponse;
 import com.gepe.gepay.payment.api.dtos.WithdrawalResponse;
-import com.gepe.gepay.platform.web.response.PageResponse;
+import com.gepe.gepay.platform.web.response.CursorPage;
 
 import java.util.List;
 import java.util.UUID;
@@ -33,8 +33,8 @@ public interface WithdrawalApi {
 
     WithdrawalResponse getWithdrawal(UUID withdrawalId);
 
-    /** Riwayat penarikan milik current user, terbaru lebih dulu (terpaginasi). */
-    PageResponse<WithdrawalResponse> listWithdrawals(int page, int size);
+    /** Riwayat penarikan milik current user, keyset by id (cursor). */
+    CursorPage<WithdrawalResponse> listWithdrawals(UUID cursor, int size);
 
     /** Batas nominal + biaya penarikan efektif untuk sebuah rekening tujuan. */
     WithdrawalConfigResponse getWithdrawalConfig(UUID destinationId);

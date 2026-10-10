@@ -8,7 +8,10 @@ import com.gepe.gepay.donation.internal.service.DonationService;
 import com.gepe.gepay.donation.internal.service.DonationStatusStreamService;
 import com.gepe.gepay.platform.i18n.MessageHelper;
 import com.gepe.gepay.platform.web.response.ApiResponse;
-import com.gepe.gepay.platform.web.response.PageResponse;
+import com.gepe.gepay.platform.web.response.CursorPage;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -22,6 +25,7 @@ import java.util.UUID;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/donations")
+@Tag(name = "Donations", description = "Donation lifecycle (public donor flow + creator feed)")
 public class DonationController {
 
     private final DonationService donationService;
@@ -29,6 +33,7 @@ public class DonationController {
     private final MessageHelper messageHelper;
 
     @PostMapping
+    @Operation(summary = "Create a donation (public/anonymous) and get payment instructions (VA/QR string)")
     public ResponseEntity<ApiResponse<DonationRes>> createDonation(@Valid @RequestBody CreateDonationReq req) {
         CreateDonationCommand command = new CreateDonationCommand(
                 req.idempotencyKey(),
@@ -47,15 +52,18 @@ public class DonationController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<ApiResponse<PageResponse<CreatorDonationRes>>> myDonations(
-            @RequestParam(defaultValue = "0") int page,
+    @Operation(summary = "List my donations as a creator (with donor + message), cursor-paginated")
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<ApiResponse<CursorPage<CreatorDonationRes>>> myDonations(
+            @RequestParam(required = false) UUID cursor,
             @RequestParam(defaultValue = "20") int size) {
         return ResponseEntity.ok(new ApiResponse<>(
                 messageHelper.get("common.success"),
-                donationService.listMyDonations(page, size).map(CreatorDonationRes::from)));
+                donationService.listMyDonations(cursor, size).map(CreatorDonationRes::from)));
     }
 
     @GetMapping("/{id}")
+    @Operation(summary = "Get a donation's payment status (public)")
     public ResponseEntity<ApiResponse<DonationRes>> getDonation(@PathVariable("id") UUID donationId) {
         return ResponseEntity.ok(new ApiResponse<>(
                 messageHelper.get("common.success"),
@@ -67,6 +75,7 @@ public class DonationController {
      * {@code GET /donations/{id}} sebagai sumber kebenaran.
      */
     @GetMapping("/{id}/stream")
+    @Operation(summary = "SSE stream of payment status (public; event: paid)")
     public SseEmitter stream(@PathVariable("id") UUID donationId) {
         var donation = donationService.getDonation(donationId);
         SseEmitter emitter = statusStreamService.subscribe(donationId);

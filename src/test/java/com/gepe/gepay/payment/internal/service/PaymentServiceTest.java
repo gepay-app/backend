@@ -16,7 +16,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.PageImpl;
 
 import java.time.Instant;
 import java.util.List;
@@ -146,15 +145,34 @@ class PaymentServiceTest {
     void listPayments_MapsCurrentUserPayments() {
         when(currentUser.userId()).thenReturn(userId);
         Payment payment = Payment.create("IDEM-200", "DONATION", userId, null, 1L, 1L, 1L, 100_000L);
-        when(paymentRepository.findByUserIdOrderByCreatedAtDesc(eq(userId), any()))
-                .thenReturn(new PageImpl<>(List.of(payment)));
+        when(paymentRepository.findByUserIdOrderByIdDesc(eq(userId), any()))
+                .thenReturn(List.of(payment));
 
-        var result = paymentService.listPayments(0, 20);
+        var result = paymentService.listPayments(null, 20);
 
         assertThat(result.items()).hasSize(1);
         assertThat(result.items().get(0).idempotencyKey()).isEqualTo("IDEM-200");
         assertThat(result.items().get(0).userId()).isEqualTo(userId);
-        assertThat(result.totalElements()).isEqualTo(1);
+        assertThat(result.hasNext()).isFalse();
+        assertThat(result.nextCursor()).isNull();
+    }
+
+    @Test
+    void listPayments_MoreThanSize_SetsNextCursor() {
+        when(currentUser.userId()).thenReturn(userId);
+        List<Payment> rows = List.of(
+                Payment.create("IDEM-1", "DONATION", userId, null, 1L, 1L, 1L, 1L),
+                Payment.create("IDEM-2", "DONATION", userId, null, 1L, 1L, 1L, 1L),
+                Payment.create("IDEM-3", "DONATION", userId, null, 1L, 1L, 1L, 1L));
+        UUID cursor = UUID.randomUUID();
+        when(paymentRepository.findByUserIdAndIdLessThanOrderByIdDesc(eq(userId), eq(cursor), any()))
+                .thenReturn(rows);
+
+        var result = paymentService.listPayments(cursor, 2);
+
+        assertThat(result.items()).hasSize(2);
+        assertThat(result.hasNext()).isTrue();
+        assertThat(result.nextCursor()).isEqualTo(rows.get(1).getId().toString());
     }
 
     @Test

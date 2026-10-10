@@ -5,7 +5,7 @@ import com.gepe.gepay.payment.api.dtos.CreatePaymentCommand;
 import com.gepe.gepay.payment.api.dtos.CreatePaymentResult;
 import com.gepe.gepay.payment.api.dtos.PaymentResponse;
 import com.gepe.gepay.payment.api.enums.ChannelDirection;
-import com.gepe.gepay.platform.web.response.PageResponse;
+import com.gepe.gepay.platform.web.response.CursorPage;
 
 import java.util.List;
 import java.util.UUID;
@@ -23,8 +23,8 @@ public interface PaymentApi {
      */
     PaymentResponse getPayment(UUID paymentId);
 
-    /** Pembayaran masuk (earnings) milik current user, terbaru lebih dulu. */
-    PageResponse<PaymentResponse> listPayments(int page, int size);
+    /** Pembayaran masuk (earnings) milik current user, keyset by id (cursor). */
+    CursorPage<PaymentResponse> listPayments(UUID cursor, int size);
 
     /** Channel aktif dengan arah tertentu (mis. {@code PAYOUT} untuk rekening tujuan). */
     List<ChannelResponse> listChannels(ChannelDirection direction);

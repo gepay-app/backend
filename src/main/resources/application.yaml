@@ -180,3 +180,14 @@ donation:
     presence-ttl-seconds: ${DONATION_OVERLAY_PRESENCE_TTL_SECONDS:30}
     watchdog-cron: ${DONATION_OVERLAY_WATCHDOG_CRON:0/30 * * * * ?}
 
+
+# OpenAPI spec + Swagger UI (springdoc). Machine-readable contract for the
+# frontend: GET /v3/api-docs (JSON) or /v3/api-docs.yaml; UI at /swagger-ui.html.
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    try-it-out-enabled: true

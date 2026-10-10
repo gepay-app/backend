@@ -6,6 +6,8 @@ import com.gepe.gepay.platform.exception.ServiceException;
 import com.gepe.gepay.platform.i18n.MessageHelper;
 import com.gepe.gepay.platform.web.response.ApiResponse;
 import com.gepe.gepay.platform.web.response.ErrorResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.stream.MapRecord;
@@ -21,6 +23,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/webhooks")
 @RequiredArgsConstructor
+@Tag(name = "Webhooks", description = "Payment provider callbacks (no auth; signature-verified)")
 public class WebhookController {
     public static final String WEBHOOK_STREAM_KEY = "payment:webhook:stream";
 
@@ -29,6 +32,7 @@ public class WebhookController {
     private final MessageHelper messageHelper;
 
     @PostMapping("/{provider}")
+    @Operation(summary = "Provider webhook callback (raw body; enqueued to Redis stream)")
     public ResponseEntity<Object> handleWebhook(
             @PathVariable("provider") String providerCode,
             @RequestBody String rawBody,

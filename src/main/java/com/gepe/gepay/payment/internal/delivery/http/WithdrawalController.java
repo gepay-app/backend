@@ -7,7 +7,10 @@ import com.gepe.gepay.payment.internal.delivery.http.res.WithdrawalConfigRes;
 import com.gepe.gepay.payment.internal.delivery.http.res.WithdrawalRes;
 import com.gepe.gepay.platform.i18n.MessageHelper;
 import com.gepe.gepay.platform.web.response.ApiResponse;
-import com.gepe.gepay.platform.web.response.PageResponse;
+import com.gepe.gepay.platform.web.response.CursorPage;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -26,12 +29,15 @@ import java.util.UUID;
 @RequestMapping("/api/v1/withdrawals")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('CREATOR')")
+@Tag(name = "Withdrawals", description = "Creator payout/withdrawal (CREATOR only)")
+@SecurityRequirement(name = "bearerAuth")
 public class WithdrawalController {
 
     private final WithdrawalApi withdrawalApi;
     private final MessageHelper messageHelper;
 
     @PostMapping
+    @Operation(summary = "Request a withdrawal (holds available balance; idempotent via idempotencyKey)")
     public ResponseEntity<ApiResponse<WithdrawalRes>> create(
             @Valid @RequestBody CreateWithdrawalRequest request) {
         WithdrawalRes response = WithdrawalRes.from(withdrawalApi.createWithdrawal(
@@ -46,14 +52,16 @@ public class WithdrawalController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<PageResponse<WithdrawalRes>>> list(
-            @RequestParam(defaultValue = "0") int page,
+    @Operation(summary = "List my withdrawals, newest first, cursor-paginated")
+    public ResponseEntity<ApiResponse<CursorPage<WithdrawalRes>>> list(
+            @RequestParam(required = false) UUID cursor,
             @RequestParam(defaultValue = "20") int size) {
         return ResponseEntity.ok(new ApiResponse<>(
-                null, withdrawalApi.listWithdrawals(page, size).map(WithdrawalRes::from)));
+                null, withdrawalApi.listWithdrawals(cursor, size).map(WithdrawalRes::from)));
     }
 
     @GetMapping("/config")
+    @Operation(summary = "Effective min/max amount and fee for a payout destination")
     public ResponseEntity<ApiResponse<WithdrawalConfigRes>> config(
             @RequestParam UUID destinationId) {
         return ResponseEntity.ok(new ApiResponse<>(
@@ -61,6 +69,7 @@ public class WithdrawalController {
     }
 
     @GetMapping("/{id}")
+    @Operation(summary = "Get a withdrawal by id")
     public ResponseEntity<ApiResponse<WithdrawalRes>> get(@PathVariable UUID id) {
         return ResponseEntity.ok(new ApiResponse<>(null, WithdrawalRes.from(withdrawalApi.getWithdrawal(id))));
     }

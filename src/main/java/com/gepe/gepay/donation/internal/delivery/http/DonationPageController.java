@@ -8,6 +8,9 @@ import com.gepe.gepay.donation.internal.dto.UpdateDonationPageCommand;
 import com.gepe.gepay.donation.internal.service.DonationPageService;
 import com.gepe.gepay.platform.i18n.MessageHelper;
 import com.gepe.gepay.platform.web.response.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -20,12 +23,15 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1")
+@Tag(name = "Donation pages", description = "Creator donation page + public page")
 public class DonationPageController {
 
     private final DonationPageService donationPageService;
     private final MessageHelper messageHelper;
 
     @GetMapping("/donations/me/page")
+    @Operation(summary = "Get (or auto-create) my donation page, including the secret overlayKey")
+    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<ApiResponse<DonationPageRes>> myPage() {
         return ResponseEntity.ok(new ApiResponse<>(
                 messageHelper.get("common.success"),
@@ -33,6 +39,8 @@ public class DonationPageController {
     }
 
     @PutMapping("/donations/me/page")
+    @Operation(summary = "Update my donation page (displayName, title, description, imageUrl, slug)")
+    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<ApiResponse<DonationPageRes>> updateMyPage(@Valid @RequestBody UpdateDonationPageReq req) {
         DonationPageRes response = DonationPageRes.from(donationPageService.updateMyPage(
                 new UpdateDonationPageCommand(
@@ -41,6 +49,8 @@ public class DonationPageController {
     }
 
     @PostMapping("/donations/me/page/overlay-key/rotate")
+    @Operation(summary = "Rotate my overlay key (invalidates the previous one)")
+    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<ApiResponse<RotateOverlayKeyRes>> rotateOverlayKey() {
         RotateOverlayKeyRes response = new RotateOverlayKeyRes(donationPageService.rotateOverlayKey());
         return ResponseEntity.ok(new ApiResponse<>(
@@ -48,6 +58,7 @@ public class DonationPageController {
     }
 
     @GetMapping("/donation-pages/{slug}")
+    @Operation(summary = "Get a public donation page by username/slug (no auth, no overlayKey)")
     public ResponseEntity<ApiResponse<PublicDonationPageRes>> publicPage(@PathVariable("slug") String slug) {
         return ResponseEntity.ok(new ApiResponse<>(
                 messageHelper.get("common.success"),

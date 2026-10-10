@@ -63,8 +63,9 @@ CREATE TABLE donation.donations
     )
 );
 
--- Antrean query: ambil donasi creator tertentu; cek status.
-CREATE INDEX ix_donations_creator ON donation.donations (creator_id, status, created_at, id);
+-- Keyset pagination riwayat donasi creator: WHERE creator_id = ? AND id < ? ORDER BY id DESC.
+-- (UUID v7 = time-ordered, jadi urutan by id setara created_at DESC.)
+CREATE INDEX ix_donations_creator ON donation.donations (creator_id, id DESC);
 -- 1 payment = maks 1 donasi (partial: payment_id boleh NULL sebelum payment dibuat).
 CREATE UNIQUE INDEX ux_donations_payment ON donation.donations (payment_id) WHERE payment_id IS NOT NULL;
 

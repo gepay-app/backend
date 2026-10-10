@@ -66,7 +66,7 @@ Display putar sesuai durationSeconds → kirim {"type":"ack","id":...} → PLAYE
 | `GET` | `/api/v1/donations/me/page` | owner | halaman sendiri (termasuk `overlayKey`) |
 | `PUT` | `/api/v1/donations/me/page` | owner | update `displayName/title/description/imageUrl/slug` |
 | `POST` | `/api/v1/donations/me/page/overlay-key/rotate` | owner | regenerate `overlay_key` |
-| `GET` | `/api/v1/donations/me?page=&size=` | owner | riwayat donasi creator (dashboard), terbaru dulu |
+| `GET` | `/api/v1/donations/me?cursor=&size=` | owner | riwayat donasi creator (dashboard), terbaru dulu |
 | `GET` | `/api/v1/donation-pages/{slug}` | publik | halaman donasi publik (tanpa `overlayKey`), by username |
 | `POST` | `/api/v1/donations` | publik | buat donasi → instruksi bayar |
 | `GET` | `/api/v1/donations/{id}` | publik | status donasi |
@@ -75,7 +75,7 @@ Display putar sesuai durationSeconds → kirim {"type":"ack","id":...} → PLAYE
 > `slug` = username publik halaman (unik, lowercase, 3–60 char `[a-z0-9-]`). Di-generate
 > otomatis saat page pertama dibuat; bisa diganti lewat `PUT .../page` (`409` bila sudah dipakai).
 > `imageUrl` = avatar/URL gambar creator untuk halaman publik. List memakai
-> `PageResponse<T>` (`items/page/size/totalElements/totalPages/hasNext`).
+> `CursorPage<T>` (`items/hasNext/nextCursor`) — keyset by id; lanjut dengan `?cursor=<nextCursor>`.
 
 **Kontrol overlay (owner)** — realtime juga lewat `/ws/overlay/control`
 

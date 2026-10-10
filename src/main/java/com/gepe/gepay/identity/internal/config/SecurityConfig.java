@@ -43,6 +43,8 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health/**").permitAll()
+                        // OpenAPI spec + Swagger UI (dev/frontend tooling).
+                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/api/v1/webhooks/**").permitAll() // buat webhook midtarans/doku/flip
                         // Katalog channel publik (donor anonim memilih metode bayar).
                         .requestMatchers(HttpMethod.GET, "/api/v1/channels").permitAll()

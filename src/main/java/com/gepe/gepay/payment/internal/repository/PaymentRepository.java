@@ -2,8 +2,7 @@ package com.gepe.gepay.payment.internal.repository;
 
 import com.gepe.gepay.payment.api.enums.PaymentStatus;
 import com.gepe.gepay.payment.internal.entity.Payment;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,8 +16,14 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
 
     Optional<Payment> findByIdempotencyKey(String idempotencyKey);
 
-    /** Pembayaran masuk (earnings) milik seorang user, terbaru lebih dulu. */
-    Page<Payment> findByUserIdOrderByCreatedAtDesc(UUID userId, Pageable pageable);
+    /**
+     * Halaman pertama earnings milik seorang user (keyset by {@code id DESC},
+     * memakai index {@code (user_id, id DESC)}). Ambil {@code limit} baris.
+     */
+    List<Payment> findByUserIdOrderByIdDesc(UUID userId, Limit limit);
+
+    /** Halaman berikutnya setelah {@code cursor} (id terakhir halaman sebelumnya). */
+    List<Payment> findByUserIdAndIdLessThanOrderByIdDesc(UUID userId, UUID cursor, Limit limit);
 
     /**
      * Kandidat settlement otomatis: sudah {@code PAID}, belum masuk batch mana pun,

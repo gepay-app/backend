@@ -24,7 +24,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.PageImpl;
 
 import java.time.Instant;
 import java.util.List;
@@ -148,15 +147,15 @@ class DonationServiceTest {
         Donation donation = Donation.create(
                 UUID.randomUUID(), creatorId, "idem-list", "VA_BCA",
                 "Budi", "budi@example.com", 50_000L, DonationType.TEXT, "halo", null, false);
-        when(donationRepository.findByCreatorIdOrderByCreatedAtDesc(eq(creatorId), any()))
-                .thenReturn(new PageImpl<>(List.of(donation)));
+        when(donationRepository.findByCreatorIdOrderByIdDesc(eq(creatorId), any()))
+                .thenReturn(List.of(donation));
 
-        var result = donationService.listMyDonations(0, 20);
+        var result = donationService.listMyDonations(null, 20);
 
         assertThat(result.items()).hasSize(1);
         assertThat(result.items().get(0).donorName()).isEqualTo("Budi");
         assertThat(result.items().get(0).message()).isEqualTo("halo");
-        assertThat(result.totalElements()).isEqualTo(1);
+        assertThat(result.hasNext()).isFalse();
     }
 
     private void assertValidationField(CreateDonationCommand command, String field) {
