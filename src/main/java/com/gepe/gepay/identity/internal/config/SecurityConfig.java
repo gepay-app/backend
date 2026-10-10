@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -43,6 +44,15 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health/**").permitAll()
                         .requestMatchers("/api/v1/webhooks/**").permitAll() // buat webhook midtarans/doku/flip
+                        // Donation: donasi dibuat & status halaman donasi bisa diakses publik
+                        // (donor anonim). Endpoint owner (`/donations/me/**`) tetap butuh auth.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/donations").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/donations/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/donation-pages/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/donations/*/stream").permitAll()
+                        // WebSocket overlay: handshake di-resolve sendiri oleh
+                        // OverlayHandshakeInterceptor (key display / token control).
+                        .requestMatchers("/ws/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(new FirebaseAuthenticationFilter(firebaseAuth), UsernamePasswordAuthenticationFilter.class)

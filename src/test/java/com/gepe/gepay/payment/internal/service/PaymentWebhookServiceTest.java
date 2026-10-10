@@ -9,6 +9,7 @@ import com.gepe.gepay.payment.api.enums.PaymentAttemptStatus;
 import com.gepe.gepay.payment.api.enums.PaymentStatus;
 import com.gepe.gepay.payment.api.enums.ProcessedEventType;
 import com.gepe.gepay.payment.api.enums.SettlementTarget;
+import com.gepe.gepay.payment.api.event.PaymentPaidEvent;
 import com.gepe.gepay.payment.internal.entity.*;
 import com.gepe.gepay.payment.internal.provider.PayinProvider;
 import com.gepe.gepay.payment.internal.provider.dtos.IncomingProviderNotification;
@@ -19,6 +20,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.Instant;
@@ -52,6 +54,8 @@ class PaymentWebhookServiceTest {
     private BusinessDayCalculator businessDayCalculator;
     @Mock
     private LedgerApi ledgerApi;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private PaymentWebhookService paymentWebhookService;
 
@@ -66,7 +70,8 @@ class PaymentWebhookServiceTest {
                 paymentRepository,
                 channelRouteRepository,
                 businessDayCalculator,
-                ledgerApi
+                ledgerApi,
+                eventPublisher
         );
     }
 
@@ -129,6 +134,16 @@ class PaymentWebhookServiceTest {
         assertThat(byAccount.get(AccountCode.CREATOR_PAYABLE_PENDING)).isEqualTo(93_340L);
         assertThat(byAccount.get(AccountCode.PLATFORM_FEE_REVENUE)).isEqualTo(6_000L);
         assertThat(byAccount.get(AccountCode.VAT_PAYABLE)).isEqualTo(660L);
+
+        ArgumentCaptor<PaymentPaidEvent> eventCaptor = ArgumentCaptor.forClass(PaymentPaidEvent.class);
+        verify(eventPublisher, times(1)).publishEvent(eventCaptor.capture());
+        PaymentPaidEvent event = eventCaptor.getValue();
+        assertThat(event.paymentId()).isEqualTo(payment.getId());
+        assertThat(event.type()).isEqualTo("DONATION");
+        assertThat(event.userId()).isEqualTo(userId);
+        assertThat(event.grossAmount()).isEqualTo(100_000L);
+        assertThat(event.netCreatorAmount()).isEqualTo(93_340L);
+        assertThat(event.paidAt()).isEqualTo(payment.getPaidAt());
     }
 
     @Test
@@ -152,6 +167,7 @@ class PaymentWebhookServiceTest {
 
         verify(paymentAttemptRepository, never()).findByProviderReferenceId(anyString());
         verify(ledgerApi, never()).postJournal(any(), any(), any(), any(), any(), any(), any());
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test
@@ -183,6 +199,7 @@ class PaymentWebhookServiceTest {
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.EXPIRED);
         assertThat(attempt.getStatus()).isEqualTo(PaymentAttemptStatus.EXPIRED);
         verify(ledgerApi, never()).postJournal(any(), any(), any(), any(), any(), any(), any());
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test
@@ -285,5 +302,6 @@ class PaymentWebhookServiceTest {
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PAID);
         assertThat(attempt.getStatus()).isEqualTo(PaymentAttemptStatus.INITIATED);
         verify(ledgerApi, never()).postJournal(any(), any(), any(), any(), any(), any(), any());
+        verify(eventPublisher, never()).publishEvent(any());
     }
 }

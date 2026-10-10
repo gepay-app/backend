@@ -24,8 +24,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -87,16 +89,23 @@ class SettlementWriterTest {
         assertThat(debit(j2, AccountCode.BANK_OPERATING)).isEqualTo(350_000L);
         assertThat(credit(j2, AccountCode.PG_CLEARING_RECEIVABLE)).isEqualTo(350_000L);
 
-        // J-3: satu jurnal per creator, agregasi net yang benar.
-        List<JournalLine> j3a = allLines.get(1);
-        assertBalanced(j3a, 300_000L);
-        assertThat(debit(j3a, AccountCode.CREATOR_PAYABLE_PENDING)).isEqualTo(300_000L);
-        assertThat(credit(j3a, AccountCode.CREATOR_PAYABLE_AVAILABLE)).isEqualTo(300_000L);
-
-        List<JournalLine> j3b = allLines.get(2);
-        assertBalanced(j3b, 50_000L);
-        assertThat(debit(j3b, AccountCode.CREATOR_PAYABLE_PENDING)).isEqualTo(50_000L);
-        assertThat(credit(j3b, AccountCode.CREATOR_PAYABLE_AVAILABLE)).isEqualTo(50_000L);
+        // J-3: satu jurnal per creator, agregasi net yang benar. Urutan grup
+        // tidak dijamin (HashMap key UUID), jadi dicek per-owner, bukan per-index.
+        List<List<JournalLine>> j3Journals = allLines.subList(1, allLines.size());
+        assertThat(j3Journals).hasSize(2);
+        for (List<JournalLine> j3 : j3Journals) {
+            long pending = debit(j3, AccountCode.CREATOR_PAYABLE_PENDING);
+            long available = credit(j3, AccountCode.CREATOR_PAYABLE_AVAILABLE);
+            assertThat(pending).isEqualTo(available).isPositive();
+        }
+        Map<String, Long> pendingByOwner = j3Journals.stream()
+                .flatMap(List::stream)
+                .filter(l -> l.accountCode() == AccountCode.CREATOR_PAYABLE_PENDING
+                        && l.direction() == EntryDirection.DEBIT)
+                .collect(Collectors.toMap(JournalLine::ownerRef, JournalLine::amount));
+        assertThat(pendingByOwner)
+                .containsEntry(creatorA.toString(), 300_000L)
+                .containsEntry(creatorB.toString(), 50_000L);
 
         // Semua payment ditandai settled.
         assertThat(p1.getSettlementId()).isEqualTo(batch.getId());

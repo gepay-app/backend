@@ -8,6 +8,7 @@ import com.gepe.gepay.payment.internal.entity.Provider;
 import com.gepe.gepay.payment.internal.entity.Withdrawal;
 import com.gepe.gepay.payment.internal.exception.PaymentError;
 import com.gepe.gepay.payment.internal.provider.PayoutProvider;
+import com.gepe.gepay.payment.internal.provider.mock.MockPayoutProvider;
 import com.gepe.gepay.payment.internal.provider.dtos.DisbursementRequest;
 import com.gepe.gepay.payment.internal.provider.dtos.DisbursementResult;
 import com.gepe.gepay.payment.internal.repository.ChannelRouteRepository;
@@ -17,6 +18,7 @@ import com.gepe.gepay.payment.internal.repository.WithdrawalRepository;
 import com.gepe.gepay.platform.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -40,6 +42,13 @@ public class PayoutService {
     private final FeeConfigRepository feeConfigRepository;
     private final PayoutWriter payoutWriter;
     private final List<PayoutProvider> payoutProviders;
+
+    /**
+     * Dev shortcut: pakai {@link MockPayoutProvider} alih-alih vendor (mis. saat
+     * sandbox Flip bermasalah). Default {@code false}; jangan aktif di produksi.
+     */
+    @Value("${payment.payout.mock-enabled:false}")
+    private boolean mockEnabled;
 
     public void processPayouts() {
         List<Withdrawal> withdrawals = withdrawalRepository.findByStatusInOrderByCreatedAtAsc(
@@ -74,11 +83,15 @@ public class PayoutService {
                     return new ServiceException(PaymentError.INTERNAL_ERROR);
                 });
 
+        String adapterCode = mockEnabled ? MockPayoutProvider.CODE : provider.getCode();
+        if (mockEnabled) {
+            log.warn("Payout mock mode enabled: using MOCK adapter instead of provider {}", provider.getCode());
+        }
         PayoutProvider adapter = payoutProviders.stream()
-                .filter(p -> p.code().equalsIgnoreCase(provider.getCode()))
+                .filter(p -> p.code().equalsIgnoreCase(adapterCode))
                 .findFirst()
                 .orElseThrow(() -> {
-                    log.error("No PayoutProvider adapter registered for provider code {}", provider.getCode());
+                    log.error("No PayoutProvider adapter registered for provider code {}", adapterCode);
                     return new ServiceException(PaymentError.INTERNAL_ERROR);
                 });
 

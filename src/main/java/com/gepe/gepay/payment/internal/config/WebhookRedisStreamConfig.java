@@ -55,9 +55,12 @@ public class WebhookRedisStreamConfig {
             log.info("Redis Stream Consumer Group '{}' already exists", CONSUMER_GROUP);
         }
 
+        // pollTimeout = durasi BLOCK pada XREADGROUP; HARUS lebih kecil dari
+        // Lettuce command timeout (spring.data.redis.timeout, default 2s) supaya
+        // blocking read tidak dibatalkan client (Redis command timed out).
         StreamMessageListenerContainer.StreamMessageListenerContainerOptions<String, MapRecord<String, String, String>> options =
                 StreamMessageListenerContainer.StreamMessageListenerContainerOptions.builder()
-                        .pollTimeout(Duration.ofSeconds(2))
+                        .pollTimeout(Duration.ofSeconds(1))
                         .build();
 
         StreamMessageListenerContainer<String, MapRecord<String, String, String>> container =

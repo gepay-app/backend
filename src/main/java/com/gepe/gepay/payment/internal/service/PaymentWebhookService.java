@@ -6,6 +6,7 @@ import com.gepe.gepay.ledger.api.enums.AccountCode;
 import com.gepe.gepay.ledger.api.enums.EntryDirection;
 import com.gepe.gepay.ledger.api.enums.JournalReferenceType;
 import com.gepe.gepay.payment.api.enums.PaymentAttemptStatus;
+import com.gepe.gepay.payment.api.event.PaymentPaidEvent;
 import com.gepe.gepay.payment.internal.entity.*;
 import com.gepe.gepay.payment.internal.exception.PaymentError;
 import com.gepe.gepay.payment.internal.provider.PayinProvider;
@@ -14,6 +15,7 @@ import com.gepe.gepay.payment.internal.repository.*;
 import com.gepe.gepay.platform.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +38,7 @@ public class PaymentWebhookService {
     private final ChannelRouteRepository channelRouteRepository;
     private final BusinessDayCalculator businessDayCalculator;
     private final LedgerApi ledgerApi;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public void processIncomingWebhook(String providerCode, String rawPayload) {
@@ -124,6 +127,20 @@ public class PaymentWebhookService {
 
             paymentRepository.saveAndFlush(payment);
             paymentAttemptRepository.saveAndFlush(attempt);
+
+            // 6. Terbitkan domain event. Dipublikasikan di dalam transaksi, tetapi
+            //    listener @ApplicationModuleListener/@TransactionalEventListener
+            //    (AFTER_COMMIT) baru jalan setelah commit — jadi consumer tidak
+            //    menerima event untuk transaksi yang rollback.
+            eventPublisher.publishEvent(new PaymentPaidEvent(
+                    payment.getId(),
+                    payment.getType(),
+                    payment.getUserId(),
+                    payment.getGrossAmount(),
+                    payment.getNetCreatorAmount(),
+                    payment.getMetadata(),
+                    payment.getPaidAt()
+            ));
 
             log.info("PaymentAttempt and Payment marked as PAID & J-1 posted: attemptId={}, paymentId={}, expectedSettlementDate={}",
                     attempt.getId(), payment.getId(), expectedSettlementDate);

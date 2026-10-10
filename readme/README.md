@@ -32,14 +32,16 @@ Penjelasannya di [Glosarium](./glossary.md#settlement-punya-3-arti).
 | `platform` | fondasi bersama | format response, error, i18n, Redis, scheduler |
 | `identity` | siapa pemakainya | login (Firebase), user, role |
 | `ledger` | **buku besar** | akun, jurnal, saldo creator |
-| `payment` | **mesin pembayaran** | payin, settlement, tarik dana, payout (aturan donasi = consumer terpisah) |
+| `payment` | **mesin pembayaran** | payin, settlement, tarik dana, payout (engine generik) |
+| `donation` | **consumer payment** | halaman donasi, donasi TEXT/YOUTUBE, overlay OBS (queue + WebSocket) |
 
 Aturan besar: **`payment` memutuskan apa yang bergerak, `ledger` yang mencatat angkanya.**
 `payment` memanggil `ledger` dan tidak pernah menulis jurnal sendiri; `ledger` tidak tahu
 soal Midtrans/Flip.
 
-> `payment` adalah **engine generik**: ia tidak tahu aturan donasi/konten. Donasi dan
-> pembelian konten adalah **consumer** (modul terpisah) yang nanti memanggil `payment`.
+> `payment` adalah **engine generik**: ia tidak tahu aturan donasi/konten. Modul
+> `donation` adalah **consumer** yang memanggil `payment` lewat `payment::api`
+> (`type=DONATION`). Lihat [Donation](./donation.md).
 
 ---
 
@@ -68,9 +70,11 @@ soal Midtrans/Flip.
 6. [Status](./payment/states.md) — semua state machine.
 7. [Settlement otomatis](./payment/settlement.md) — job Quartz.
 8. [Contoh lengkap](./payment/example.md) — angka per langkah.
-9. [Rencana kerja](./payment/todo.md) — langkah implementasi.
 
-**Istilah:** [Glosarium](./glossary.md).
+**Donation (consumer) — `readme/`**
+9. [Donation](./donation.md) — halaman, donasi, overlay OBS (queue + WebSocket + SSE).
+
+**Istilah:** [Glosarium](./glossary.md). Rencana kerja: [`../todo.md`](../todo.md).
 
 ---
 
@@ -81,9 +85,10 @@ soal Midtrans/Flip.
 | `platform` | ✅ stabil | response envelope, error, i18n, Redis, Quartz |
 | `identity` | ✅ stabil | Firebase auth, user, role |
 | `ledger` | ✅ stabil | double-entry, lazy account, saldo, jurnal |
-| `payment` | 🟡 berjalan | baru skema + entity/enum; service/controller/adapter belum |
+| `payment` | 🟡 berjalan | payin + webhook (Redis stream), settlement (T+n), withdraw/payout; M5 (refund/reconciliation) ditunda |
+| `donation` | 🟡 berjalan | halaman + donasi TEXT/YOUTUBE, overlay queue + WebSocket + SSE |
 
-Rencana kerja berurut `payment`: [Payment — Rencana kerja](./payment/todo.md).
+Rencana kerja berurut: [`../todo.md`](../todo.md).
 
 ---
 

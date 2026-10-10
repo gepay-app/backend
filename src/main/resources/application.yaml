@@ -156,4 +156,27 @@ payment:
     cron: ${PAYMENT_SETTLEMENT_CRON:0 0 3 * * ?}
   payout:
     cron: ${PAYMENT_PAYOUT_CRON:0 0/5 * * * ?}
+    # Dev shortcut: pakai MockPayoutProvider (COMPLETED langsung) alih-alih Flip.
+    # JANGAN aktif di produksi.
+    mock-enabled: ${PAYMENT_PAYOUT_MOCK_ENABLED:false}
+  webhook:
+    # Recovery webhook PEL (pesan menggantung saat crash); default tiap 1 menit.
+    recovery-cron: ${PAYMENT_WEBHOOK_RECOVERY_CRON:0 */1 * * * ?}
+
+# donation module (see todo.md §8)
+donation:
+  overlay:
+    youtube:
+      rate-per-second: ${DONATION_YOUTUBE_RATE_PER_SECOND:500}
+      min-seconds: ${DONATION_YOUTUBE_MIN_SECONDS:10}
+      max-seconds: ${DONATION_YOUTUBE_MAX_SECONDS:1800}
+    text:
+      max-characters: ${DONATION_TEXT_MAX_CHARACTERS:350}
+      chars-per-second: ${DONATION_TEXT_CHARS_PER_SECOND:12}
+      min-seconds: ${DONATION_TEXT_MIN_SECONDS:10}
+      max-seconds: ${DONATION_TEXT_MAX_SECONDS:60}
+    ack-timeout-seconds: ${DONATION_OVERLAY_ACK_TIMEOUT_SECONDS:60}
+    auto-requeue-on-timeout: ${DONATION_OVERLAY_AUTO_REQUEUE:true}
+    presence-ttl-seconds: ${DONATION_OVERLAY_PRESENCE_TTL_SECONDS:30}
+    watchdog-cron: ${DONATION_OVERLAY_WATCHDOG_CRON:0/30 * * * * ?}
 

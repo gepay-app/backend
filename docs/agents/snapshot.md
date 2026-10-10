@@ -30,7 +30,8 @@ and `platform` all live under it.
 | `platform` | `com.gepe.gepay.platform` | OPEN (shared) | stable — web, logging, exception, i18n, config, cache, security, modulith recovery |
 | `identity` | `com.gepe.gepay.identity` | CLOSED | stable — Firebase auth enrichment, users, roles, `CurrentUser` |
 | `ledger` | `com.gepe.gepay.ledger` | CLOSED | stable — double-entry ledger, accounts, journals |
-| `payment` | `com.gepe.gepay.payment` | CLOSED | in progress — generic payment engine: payin, settlement, withdrawal/payout, reconciliation |
+| `payment` | `com.gepe.gepay.payment` | CLOSED | in progress — generic payment engine: payin (webhook via Redis stream), settlement (T+n Quartz), withdrawal/payout; publishes `PaymentPaidEvent` after commit; refund/reconciliation/adjustment (M5) deferred |
+| `donation` | `com.gepe.gepay.donation` | CLOSED | in progress — donation pages + donations (TEXT/YOUTUBE), overlay-key rotation, `PaymentApi` consumer; no public `api` (nothing depends on it); overlay queue/WebSocket in later phases |
 
 ## Database migrations (Flyway, `src/main/resources/db/migration`)
 
@@ -41,12 +42,28 @@ and `platform` all live under it.
 | `V3__identity_tables.sql` | `identity` users, roles, user_roles |
 | `V4__ledger_tables.sql` | `ledger` accounts, journals, entries |
 | `V5__payment_tables.sql` | `payment` schema (WIP: payments, attempts, settlements, withdrawals, payouts, fund transfers, refunds, adjustments, channels, fee configs, holidays, …) |
+| `V6__donation_tables.sql` | `donation` schema: donation_pages, donations, overlay_events |
 
 ## What is (not) there yet
 
-- **Present:** full `platform` + `identity` + `ledger`; `payment` has entities,
-  enums, and `BusinessDayCalculator` only (no facade/controller/error enum/i18n yet).
-- **Planned / not yet done:** `platform/persistence` was considered for
-  auditing but is intentionally **not** introduced (audit fields are manual —
-  see §3 persistence); metrics/tracing bridge (tracing off in `application.yaml`);
-  root `Dockerfile`/compose; OpenAPI docs.
+- **Present:** full `platform` + `identity` + `ledger`; `payment` has the payin
+  flow (`PaymentApi`/`WithdrawalApi` facades, `WebhookController` → Redis stream
+  → `PaymentWebhookService`), settlement (`SettlementJob`), withdrawal/payout
+  (`PayoutJob`, Flip adapter), `PaymentError` + i18n, and the `PaymentPaidEvent`
+  domain event (published after commit). Webhook PEL recovery is scheduled via
+  `WebhookPelRecoveryScheduler`.
+- **Donation (present, partial):** public donation pages, creator page + overlay-key
+  management/rotation, donation creation delegating to `payment` (`type=DONATION`),
+  `YouTubeUrlParser` / `OverlayDurationCalculator` / `OverlayKeyGenerator`; overlay
+  queue (`OverlayWriter`/`OverlayDispatcher`, `FOR UPDATE SKIP LOCKED`, FIFO),
+  `PaymentPaidEvent` listener, Redis `OverlayStateStore` + pub/sub broadcaster, and
+  Quartz ack watchdog; WebSocket delivery (`/ws/overlay/display` tanpa login via
+  `overlay_key`, `/ws/overlay/control` via token Firebase) with local session registry
+  + Redis fan-out; overlay control REST endpoints + SSE payment status
+  (`GET /api/v1/donations/{id}/stream`). See `readme/donation.md`.
+- **Planned / not yet done:** payment Milestone 5
+  (refund, chargeback, adjustment, reconciliation, admin fee config, OpenAPI);
+  payout webhook routing + Flip bank-account-inquiry; `platform/persistence` was
+  considered for auditing but is intentionally **not** introduced (audit fields
+  are manual — see §3 persistence); metrics/tracing bridge (tracing off in
+  `application.yaml`); root `Dockerfile`/compose; OpenAPI docs.

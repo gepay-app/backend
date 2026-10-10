@@ -34,6 +34,7 @@ class MessageSourceTest {
     void registersGlobalBundleFirstThenModuleBundlesAlphabetically() throws IOException {
         assertThat(I18nConfig.discoverBasenames())
                 .containsExactly("i18n/messages/messages",
+                        "i18n/donation/messages",     // feature module bundle (main resources)
                         "i18n/identity/messages",     // feature module bundle (main resources)
                         "i18n/ledger/messages",       // feature module bundle (main resources)
                         "i18n/payment/messages",      // feature module bundle (main resources)
