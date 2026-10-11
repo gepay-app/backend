@@ -29,6 +29,8 @@ class OverlayQueueServiceTest {
     private OverlayStateStore stateStore;
     @Mock
     private OverlayDispatcher dispatcher;
+    @Mock
+    private OverlayBroadcaster broadcaster;
 
     private OverlayQueueService service;
 
@@ -36,7 +38,7 @@ class OverlayQueueServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new OverlayQueueService(repository, overlayWriter, stateStore, dispatcher);
+        service = new OverlayQueueService(repository, overlayWriter, stateStore, dispatcher, broadcaster);
     }
 
     @Test
@@ -61,12 +63,14 @@ class OverlayQueueServiceTest {
     }
 
     @Test
-    void pauseAndResumeToggleState() {
+    void pauseAndResumeToggleStateAndNotifyDisplay() {
         service.pause(creatorId);
         verify(stateStore).setPaused(creatorId, true);
+        verify(broadcaster).paused(creatorId, true);
 
         service.resume(creatorId);
         verify(stateStore).setPaused(creatorId, false);
+        verify(broadcaster).paused(creatorId, false);
         verify(dispatcher).dispatch(creatorId);
     }
 
@@ -80,6 +84,21 @@ class OverlayQueueServiceTest {
 
         verify(overlayWriter).markSkipped(playing.getId());
         verify(stateStore).clearCurrent(creatorId);
+        verify(broadcaster).skip(creatorId, playing.getId());
+        verify(dispatcher).dispatch(creatorId);
+    }
+
+    @Test
+    void skipWithoutCurrentStillNotifiesDisplayWithNullId() {
+        when(repository.findFirstByCreatorIdAndStatusOrderByCreatedAtAsc(creatorId, OverlayEventStatus.PLAYING))
+                .thenReturn(Optional.empty());
+        when(repository.findFirstByCreatorIdAndStatusOrderByCreatedAtAsc(creatorId, OverlayEventStatus.PENDING))
+                .thenReturn(Optional.empty());
+
+        service.skip(creatorId);
+
+        verify(overlayWriter, never()).markSkipped(any());
+        verify(broadcaster).skip(creatorId, null);
         verify(dispatcher).dispatch(creatorId);
     }
 }

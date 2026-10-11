@@ -7,22 +7,20 @@ import com.gepe.gepay.ledger.api.enums.AccountCode;
 import com.gepe.gepay.ledger.api.enums.EntryDirection;
 import com.gepe.gepay.ledger.api.enums.JournalReferenceType;
 import com.gepe.gepay.payment.api.WithdrawalApi;
+import com.gepe.gepay.payment.api.dtos.PayoutChannelResponse;
 import com.gepe.gepay.payment.api.dtos.PayoutDestinationCreateCommand;
 import com.gepe.gepay.payment.api.dtos.PayoutDestinationResponse;
 import com.gepe.gepay.payment.api.dtos.WithdrawalCreateCommand;
 import com.gepe.gepay.payment.api.dtos.WithdrawalConfigResponse;
 import com.gepe.gepay.payment.api.dtos.WithdrawalResponse;
 import com.gepe.gepay.payment.api.enums.ChannelDirection;
-import com.gepe.gepay.payment.api.enums.FeeType;
 import com.gepe.gepay.payment.internal.entity.Channel;
 import com.gepe.gepay.payment.internal.entity.ChannelRoute;
-import com.gepe.gepay.payment.internal.entity.FeeConfig;
 import com.gepe.gepay.payment.internal.entity.PayoutDestination;
 import com.gepe.gepay.payment.internal.entity.Withdrawal;
 import com.gepe.gepay.payment.internal.exception.PaymentError;
 import com.gepe.gepay.payment.internal.repository.ChannelRepository;
 import com.gepe.gepay.payment.internal.repository.ChannelRouteRepository;
-import com.gepe.gepay.payment.internal.repository.FeeConfigRepository;
 import com.gepe.gepay.payment.internal.repository.PayoutDestinationRepository;
 import com.gepe.gepay.payment.internal.repository.WithdrawalRepository;
 import com.gepe.gepay.platform.exception.ServiceException;
@@ -34,8 +32,8 @@ import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -53,7 +51,7 @@ public class WithdrawalService implements WithdrawalApi {
     private final PayoutDestinationRepository payoutDestinationRepository;
     private final ChannelRepository channelRepository;
     private final ChannelRouteRepository channelRouteRepository;
-    private final FeeConfigRepository feeConfigRepository;
+    private final FeeResolver feeResolver;
     private final WithdrawalRepository withdrawalRepository;
     private final LedgerApi ledgerApi;
 
@@ -139,15 +137,8 @@ public class WithdrawalService implements WithdrawalApi {
             throw new ServiceException(PaymentError.AMOUNT_ABOVE_MAX, route.getMaxAmount(), channel.getCode());
         }
 
-        FeeConfig feeConfig = feeConfigRepository.findActiveConfig(
-                        FeeType.PLATFORM_WITHDRAWAL, null, null, null, Instant.now())
-                .orElseThrow(() -> {
-                    log.error("No active PLATFORM_WITHDRAWAL fee config");
-                    return new ServiceException(PaymentError.INTERNAL_ERROR);
-                });
-
-        long withdrawalFee = feeConfig.getFixedAmount()
-                + Math.round((double) command.requestedAmount() * feeConfig.getPercentageBps() / 10000.0);
+        FeeResolver.WithdrawalFee fee = feeResolver.resolveWithdrawalFee(userId, command.requestedAmount());
+        long withdrawalFee = fee.feeAmount();
         long net = command.requestedAmount() - withdrawalFee;
 
         long available = ledgerApi.getOrCreateAccount(AccountCode.CREATOR_PAYABLE_AVAILABLE, userId.toString()).balance();
@@ -225,20 +216,50 @@ public class WithdrawalService implements WithdrawalApi {
         ChannelRoute route = channelRouteRepository.findActiveRoute(destination.getChannelId())
                 .orElseThrow(() -> new ServiceException(PaymentError.CHANNEL_ROUTE_NOT_FOUND, destination.getChannelId()));
 
-        FeeConfig feeConfig = feeConfigRepository.findActiveConfig(
-                        FeeType.PLATFORM_WITHDRAWAL, null, null, null, Instant.now())
-                .orElseThrow(() -> {
-                    log.error("No active PLATFORM_WITHDRAWAL fee config");
-                    return new ServiceException(PaymentError.INTERNAL_ERROR);
-                });
+        FeeResolver.WithdrawalFee fee = feeResolver.resolveWithdrawalFee(currentUser.userId(), 0L);
 
         return new WithdrawalConfigResponse(
                 route.getMinAmount(),
                 route.getMaxAmount(),
-                feeConfig.getFixedAmount(),
-                feeConfig.getPercentageBps(),
+                fee.fixedFee(),
+                fee.percentageBps(),
                 "IDR"
         );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PayoutChannelResponse> listPayoutChannels() {
+        // Tarif penarikan global per user (memperhitungkan override), sama untuk
+        // semua channel; resolusi sekali agar tidak query berulang per channel.
+        FeeResolver.WithdrawalFee fee = feeResolver.resolveWithdrawalFee(currentUser.userId(), 0L);
+        return channelRepository.findByDirectionAndIsActiveTrue(ChannelDirection.PAYOUT)
+                .stream()
+                .map(channel -> mapToPayoutChannelResponse(channel, fee))
+                .flatMap(Optional::stream)
+                .toList();
+    }
+
+    private Optional<PayoutChannelResponse> mapToPayoutChannelResponse(
+            Channel channel, FeeResolver.WithdrawalFee fee) {
+        Optional<ChannelRoute> routeOpt = channelRouteRepository.findActiveRoute(channel.getId());
+        if (routeOpt.isEmpty()) {
+            log.warn("Skipping PAYOUT channel {} without an active route", channel.getCode());
+            return Optional.empty();
+        }
+        ChannelRoute route = routeOpt.get();
+        return Optional.of(new PayoutChannelResponse(
+                channel.getId(),
+                channel.getCode(),
+                channel.getDisplayName(),
+                channel.getType(),
+                channel.getDirection(),
+                route.getMinAmount(),
+                route.getMaxAmount(),
+                fee.fixedFee(),
+                fee.percentageBps(),
+                "IDR"
+        ));
     }
 
     /** Destination milik current user; bedakan "tidak ada" vs "bukan miliknya". */

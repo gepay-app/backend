@@ -15,7 +15,8 @@ import java.util.UUID;
 
 /**
  * Meneruskan pesan Redis pub/sub ke sesi WebSocket <strong>lokal</strong> milik
- * creator terkait: perintah {@code play} (display + control) dan
+ * creator terkait: perintah {@code play} (display + control), sinyal kontrol
+ * playback {@code skip}/{@code paused}/{@code resumed} (hanya display), dan
  * {@code keyRotated} (menutup display lama, memberi tahu control). Inilah yang
  * membuat fan-out benar saat webhook diproses di node lain.
  */
@@ -36,6 +37,13 @@ public class OverlayRedisSubscriber implements MessageListener {
         }
         if (channel.startsWith(RedisOverlayBroadcaster.KEY_ROTATED_CHANNEL_PREFIX)) {
             registry.closeDisplaySessions(creatorId);
+            sendToAll(registry.controlSessions(creatorId), body);
+            return;
+        }
+        if (channel.startsWith(RedisOverlayBroadcaster.CONTROL_CHANNEL_PREFIX)) {
+            // Sinyal kontrol playback (skip/paused/resumed) hanya untuk display (OBS).
+            sendToAll(registry.displaySessions(creatorId), body);
+            return;
         }
         sendToAll(registry.displaySessions(creatorId), body);
         sendToAll(registry.controlSessions(creatorId), body);

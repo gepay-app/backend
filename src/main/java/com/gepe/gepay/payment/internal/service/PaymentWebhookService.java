@@ -16,7 +16,6 @@ import com.gepe.gepay.platform.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -60,19 +59,23 @@ public class PaymentWebhookService {
 
         String externalEventId = notification.providerReferenceId() + ":" + notification.type();
 
-        // 1. Cek Idempotensi melalui DB Inbox (processed_events)
-        try {
-            ProcessedEvent processedEvent = ProcessedEvent.create(
-                    providerEntity.getId(),
-                    notification.type(),
-                    externalEventId,
-                    notification.raw()
-            );
-            processedEventRepository.saveAndFlush(processedEvent);
-        } catch (DataIntegrityViolationException e) {
+        // 1. Cek Idempotensi melalui DB Inbox (processed_events). Dicek dulu
+        //    supaya event duplikat tidak memicu DataIntegrityViolationException
+        //    di dalam transaksi — flush yang gagal menandai transaksi
+        //    rollback-only sehingga commit-nya melempar UnexpectedRollbackException
+        //    (pesan tidak pernah ter-ACK dan di-retry selamanya). Unique
+        //    constraint (provider_id, external_event_id) tetap jadi pengaman
+        //    terakhir untuk race antar instance.
+        if (processedEventRepository.existsByProviderIdAndExternalEventId(providerEntity.getId(), externalEventId)) {
             log.info("Webhook event already processed (idempotent skip): externalEventId={}", externalEventId);
             return;
         }
+        processedEventRepository.save(ProcessedEvent.create(
+                providerEntity.getId(),
+                notification.type(),
+                externalEventId,
+                notification.raw()
+        ));
 
         // 2. Load PaymentAttempt & Parent Payment
         PaymentAttempt attempt = paymentAttemptRepository.findByProviderReferenceId(notification.providerReferenceId())

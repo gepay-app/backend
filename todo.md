@@ -646,7 +646,12 @@ Protokol JSON sederhana (bukan STOMP). Envelope:
 - Server→client:
   - `{"type":"hello","data":{"creatorId":"…","queueDepth":N,"paused":false}}`
   - `{"type":"play","id":"<overlayEventId>","data":{ …§7.2… }}`
-  - `{"type":"paused","data":{"paused":true}}` (opsional, supaya display tahu)
+  - `{"type":"skip","id":"<overlayEventId>|null","data":{"overlayEventId":"<overlayEventId>|null"}}`
+    — hentikan playback saat ini (dipicu controller `skip`).
+  - `{"type":"paused","data":{"paused":true}}` — controller `pause`.
+  - `{"type":"resumed","data":{"paused":false}}` — controller `resume`.
+  - Fan-out lintas instance lewat Redis `donation:overlay:control:{creatorId}`
+    (hanya diteruskan ke sesi display), pola sama dengan `play`/`keyRotated`.
 - Client→server:
   - `{"type":"ack","id":"<overlayEventId>"}` — setelah animasi selesai/dihentikan.
   - `{"type":"heartbeat"}` — refresh presence (tiap 10s). Atau pakai WS ping.

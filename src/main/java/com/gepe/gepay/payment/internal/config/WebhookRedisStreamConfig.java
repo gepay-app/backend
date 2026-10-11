@@ -13,7 +13,10 @@ import org.springframework.data.redis.connection.stream.ReadOffset;
 import org.springframework.data.redis.connection.stream.StreamOffset;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.stream.StreamMessageListenerContainer;
+import org.springframework.data.redis.stream.StreamMessageListenerContainer.ConsumerStreamReadRequest;
+import org.springframework.data.redis.stream.StreamMessageListenerContainer.StreamReadRequest;
 import org.springframework.data.redis.stream.Subscription;
+import org.springframework.util.ErrorHandler;
 
 import java.lang.management.ManagementFactory;
 import java.net.InetAddress;
@@ -50,7 +53,11 @@ public class WebhookRedisStreamConfig {
         log.info("Registering Redis Stream Consumer: group='{}', consumer='{}'", CONSUMER_GROUP, consumerName.value());
 
         try {
-            redisTemplate.opsForStream().createGroup(WebhookController.WEBHOOK_STREAM_KEY, CONSUMER_GROUP);
+            // Mulai dari awal stream supaya pesan yang di-XADD sebelum consumer
+            // group dibuat tidak hilang. Kalau group sudah ada, Redis melempar
+            // BUSYGROUP dan kita lanjut memakai group yang lama.
+            redisTemplate.opsForStream().createGroup(
+                    WebhookController.WEBHOOK_STREAM_KEY, ReadOffset.from("0"), CONSUMER_GROUP);
         } catch (Exception e) {
             log.info("Redis Stream Consumer Group '{}' already exists", CONSUMER_GROUP);
         }
@@ -66,11 +73,26 @@ public class WebhookRedisStreamConfig {
         StreamMessageListenerContainer<String, MapRecord<String, String, String>> container =
                 StreamMessageListenerContainer.create(connectionFactory, options);
 
-        Subscription subscription = container.receive(
-                Consumer.from(CONSUMER_GROUP, consumerName.value()),
-                StreamOffset.create(WebhookController.WEBHOOK_STREAM_KEY, ReadOffset.lastConsumed()),
-                consumer
-        );
+        // PENTING: default Spring Data Redis men-cancel subscription pada error
+        // APA PUN saat read (cancelSubscriptionOnError = t -> true). Transient
+        // error seperti RedisCommandTimeoutException / reconnect akan mematikan
+        // worker secara PERMANEN: aplikasi tetap hidup dan webhook tetap masuk
+        // stream, tapi tidak ada lagi yang mengonsumsi (busuk di lag, bukan PEL,
+        // sehingga WebhookPelRecoveryJob pun tidak bisa menolong). Di sini
+        // subscription dibiarkan hidup dan retry; error cukup dicatat.
+        ErrorHandler errorHandler = t ->
+                log.error("Error reading Redis Stream webhook; subscription kept alive & will retry", t);
+
+        ConsumerStreamReadRequest<String> readRequest =
+                StreamReadRequest.<String>builder(
+                                StreamOffset.create(WebhookController.WEBHOOK_STREAM_KEY, ReadOffset.lastConsumed()))
+                        .consumer(Consumer.from(CONSUMER_GROUP, consumerName.value()))
+                        .autoAcknowledge(false)
+                        .cancelOnError(t -> false)
+                        .errorHandler(errorHandler)
+                        .build();
+
+        Subscription subscription = container.register(readRequest, consumer);
 
         container.start();
         return subscription;

@@ -5,6 +5,7 @@ import com.gepe.gepay.payment.api.PaymentApi;
 import com.gepe.gepay.payment.api.dtos.ChannelResponse;
 import com.gepe.gepay.payment.api.dtos.CreatePaymentCommand;
 import com.gepe.gepay.payment.api.dtos.CreatePaymentResult;
+import com.gepe.gepay.payment.api.dtos.PayinChannelResponse;
 import com.gepe.gepay.payment.api.dtos.PaymentAttemptResponse;
 import com.gepe.gepay.payment.api.dtos.PaymentResponse;
 import com.gepe.gepay.payment.api.enums.ChannelDirection;
@@ -24,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -198,10 +200,52 @@ public class PaymentService implements PaymentApi {
     }
 
     @Override
+    @Deprecated(since = "channel-catalog-split", forRemoval = true)
     @Transactional(readOnly = true)
     public List<ChannelResponse> listChannels(ChannelDirection direction) {
         return channelRepository.findByDirectionAndIsActiveTrue(direction)
                 .stream().map(this::mapToChannelResponse).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PayinChannelResponse> listPayinChannels(Long amount) {
+        return channelRepository.findByDirectionAndIsActiveTrue(ChannelDirection.PAYIN)
+                .stream()
+                .map(channel -> mapToPayinChannelResponse(channel, amount))
+                .flatMap(Optional::stream)
+                .toList();
+    }
+
+    private Optional<PayinChannelResponse> mapToPayinChannelResponse(Channel channel, Long amount) {
+        Optional<ChannelRoute> routeOpt = channelRouteRepository.findActiveRoute(channel.getId());
+        if (routeOpt.isEmpty()) {
+            log.warn("Skipping PAYIN channel {} without an active route", channel.getCode());
+            return Optional.empty();
+        }
+        ChannelRoute route = routeOpt.get();
+
+        Long pgFeeAmount = null;
+        Long totalChargedAmount = null;
+        if (amount != null) {
+            FeeResolver.GatewayFeeSnapshot fee = feeResolver.resolveGatewayFee(
+                    route.getProviderId(), channel.getId(), amount);
+            pgFeeAmount = fee.pgFeeAmount();
+            totalChargedAmount = fee.totalChargedAmount();
+        }
+
+        return Optional.of(new PayinChannelResponse(
+                channel.getId(),
+                channel.getCode(),
+                channel.getDisplayName(),
+                channel.getType(),
+                channel.getDirection(),
+                route.getMinAmount(),
+                route.getMaxAmount(),
+                pgFeeAmount,
+                totalChargedAmount,
+                "IDR"
+        ));
     }
 
     private CreatePaymentResult replay(Payment existing) {

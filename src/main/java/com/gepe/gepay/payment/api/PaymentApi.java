@@ -3,6 +3,7 @@ package com.gepe.gepay.payment.api;
 import com.gepe.gepay.payment.api.dtos.ChannelResponse;
 import com.gepe.gepay.payment.api.dtos.CreatePaymentCommand;
 import com.gepe.gepay.payment.api.dtos.CreatePaymentResult;
+import com.gepe.gepay.payment.api.dtos.PayinChannelResponse;
 import com.gepe.gepay.payment.api.dtos.PaymentResponse;
 import com.gepe.gepay.payment.api.enums.ChannelDirection;
 import com.gepe.gepay.platform.web.response.CursorPage;
@@ -26,6 +27,22 @@ public interface PaymentApi {
     /** Pembayaran masuk (earnings) milik current user, keyset by id (cursor). */
     CursorPage<PaymentResponse> listPayments(UUID cursor, int size);
 
-    /** Channel aktif dengan arah tertentu (mis. {@code PAYOUT} untuk rekening tujuan). */
+    /**
+     * Channel aktif dengan arah tertentu (mis. {@code PAYOUT} untuk rekening tujuan).
+     *
+     * @deprecated diganti oleh {@link #listPayinChannels(Long)} (katalog donor
+     *     publik, dengan fee PG) dan {@code WithdrawalApi#listPayoutChannels()}
+     *     (katalog pencairan, dengan fee efektif per user). Dipertahankan sampai
+     *     frontend migrasi.
+     */
+    @Deprecated(since = "channel-catalog-split", forRemoval = true)
     List<ChannelResponse> listChannels(ChannelDirection direction);
+
+    /**
+     * Katalog channel PAYIN publik + komponen fee yang ditanggung pembayar
+     * (GATEWAY_PROCESSING saja). Bila {@code amount} diisi, tiap item memuat
+     * {@code pgFeeAmount}/{@code totalChargedAmount}; bila {@code null}, keduanya
+     * {@code null}. Channel tanpa route aktif dilewati.
+     */
+    List<PayinChannelResponse> listPayinChannels(Long amount);
 }

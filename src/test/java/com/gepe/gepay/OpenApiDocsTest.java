@@ -37,6 +37,8 @@ class OpenApiDocsTest {
                 .andExpect(jsonPath("$.paths['/api/v1/donations']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/donation-pages/{slug}']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/channels']").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/channels/payin']").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/channels/payout']").exists())
                 .andExpect(jsonPath("$.components.securitySchemes.bearerAuth").exists());
     }
 }

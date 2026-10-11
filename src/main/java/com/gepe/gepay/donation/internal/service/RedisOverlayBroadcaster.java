@@ -23,6 +23,7 @@ public class RedisOverlayBroadcaster implements OverlayBroadcaster {
 
     public static final String PLAY_CHANNEL_PREFIX = "donation:overlay:play:";
     public static final String KEY_ROTATED_CHANNEL_PREFIX = "donation:overlay:key-rotated:";
+    public static final String CONTROL_CHANNEL_PREFIX = "donation:overlay:control:";
 
     private final StringRedisTemplate redis;
     private final ObjectMapper objectMapper;
@@ -50,5 +51,39 @@ public class RedisOverlayBroadcaster implements OverlayBroadcaster {
         redis.convertAndSend(KEY_ROTATED_CHANNEL_PREFIX + creatorId,
                 objectMapper.writeValueAsString(envelope));
         log.debug("Published overlay key rotation for creator={}", creatorId);
+    }
+
+    @Override
+    public void skip(UUID creatorId, UUID overlayEventId) {
+        String eventId = overlayEventId == null ? null : overlayEventId.toString();
+        // LinkedHashMap (bukan Map.of) supaya nilai null diperbolehkan saat tidak
+        // ada event yang sedang diputar.
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("overlayEventId", eventId);
+
+        Map<String, Object> envelope = new LinkedHashMap<>();
+        envelope.put("v", 1);
+        envelope.put("type", "skip");
+        envelope.put("id", eventId);
+        envelope.put("data", data);
+
+        publishControl(creatorId, envelope);
+        log.debug("Published overlay skip for creator={}, event={}", creatorId, eventId);
+    }
+
+    @Override
+    public void paused(UUID creatorId, boolean paused) {
+        Map<String, Object> envelope = new LinkedHashMap<>();
+        envelope.put("v", 1);
+        envelope.put("type", paused ? "paused" : "resumed");
+        envelope.put("data", Map.of("paused", paused));
+
+        publishControl(creatorId, envelope);
+        log.debug("Published overlay {} for creator={}", paused ? "paused" : "resumed", creatorId);
+    }
+
+    private void publishControl(UUID creatorId, Map<String, Object> envelope) {
+        redis.convertAndSend(CONTROL_CHANNEL_PREFIX + creatorId,
+                objectMapper.writeValueAsString(envelope));
     }
 }

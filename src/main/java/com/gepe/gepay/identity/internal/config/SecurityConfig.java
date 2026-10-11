@@ -47,6 +47,8 @@ public class SecurityConfig {
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/api/v1/webhooks/**").permitAll() // buat webhook midtarans/doku/flip
                         // Katalog channel publik (donor anonim memilih metode bayar).
+                        // `/channels/payin` publik; `/channels/payout` butuh auth (tarif per user).
+                        .requestMatchers(HttpMethod.GET, "/api/v1/channels/payin").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/channels").permitAll()
                         // Donation: donasi dibuat & status halaman donasi bisa diakses publik
                         // (donor anonim). Endpoint owner (`/donations/me/**`) tetap butuh auth,

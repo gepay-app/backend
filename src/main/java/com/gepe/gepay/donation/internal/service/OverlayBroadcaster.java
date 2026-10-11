@@ -18,4 +18,16 @@ public interface OverlayBroadcaster {
      * lama ditutup, control menerima key baru.
      */
     void keyRotated(UUID creatorId, String overlayKey);
+
+    /**
+     * Sinyal {@code skip} ke display: hentikan playback saat ini. {@code id}
+     * boleh {@code null} bila tidak ada event yang sedang diputar.
+     */
+    void skip(UUID creatorId, UUID overlayEventId);
+
+    /**
+     * Sinyal {@code paused}/{@code resumed} ke display agar OBS bisa menjeda
+     * (atau melanjutkan) media yang sedang diputar tanpa menunggu item berikutnya.
+     */
+    void paused(UUID creatorId, boolean paused);
 }

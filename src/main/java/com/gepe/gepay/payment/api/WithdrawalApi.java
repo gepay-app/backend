@@ -1,5 +1,6 @@
 package com.gepe.gepay.payment.api;
 
+import com.gepe.gepay.payment.api.dtos.PayoutChannelResponse;
 import com.gepe.gepay.payment.api.dtos.PayoutDestinationCreateCommand;
 import com.gepe.gepay.payment.api.dtos.PayoutDestinationResponse;
 import com.gepe.gepay.payment.api.dtos.WithdrawalCreateCommand;
@@ -38,4 +39,11 @@ public interface WithdrawalApi {
 
     /** Batas nominal + biaya penarikan efektif untuk sebuah rekening tujuan. */
     WithdrawalConfigResponse getWithdrawalConfig(UUID destinationId);
+
+    /**
+     * Katalog channel PAYOUT (butuh auth) beserta tarif PLATFORM_WITHDRAWAL
+     * efektif untuk current user (memperhitungkan {@code UserFeeOverride}).
+     * Channel tanpa route aktif dilewati.
+     */
+    List<PayoutChannelResponse> listPayoutChannels();
 }

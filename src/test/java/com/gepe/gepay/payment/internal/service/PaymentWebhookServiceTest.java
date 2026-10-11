@@ -21,7 +21,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -160,11 +159,12 @@ class PaymentWebhookServiceTest {
                 Map.of("status", "settlement")
         );
         when(payinProvider.parseWebhook(anyString(), any())).thenReturn(notification);
-        doThrow(new DataIntegrityViolationException("Duplicate key"))
-                .when(processedEventRepository).saveAndFlush(any());
+        when(processedEventRepository.existsByProviderIdAndExternalEventId(any(), eq("ORDER-123:PAYMENT_PAID")))
+                .thenReturn(true);
 
         paymentWebhookService.processIncomingWebhook("MIDTRANS", "{}");
 
+        verify(processedEventRepository, never()).save(any());
         verify(paymentAttemptRepository, never()).findByProviderReferenceId(anyString());
         verify(ledgerApi, never()).postJournal(any(), any(), any(), any(), any(), any(), any());
         verify(eventPublisher, never()).publishEvent(any());

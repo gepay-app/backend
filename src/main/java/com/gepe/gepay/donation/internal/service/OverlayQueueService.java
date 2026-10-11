@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -27,6 +28,7 @@ public class OverlayQueueService {
     private final OverlayWriter overlayWriter;
     private final OverlayStateStore stateStore;
     private final OverlayDispatcher dispatcher;
+    private final OverlayBroadcaster broadcaster;
 
     @Transactional(readOnly = true)
     public List<OverlayQueueItem> list(UUID creatorId, OverlayEventStatus status) {
@@ -38,19 +40,23 @@ public class OverlayQueueService {
 
     public void pause(UUID creatorId) {
         stateStore.setPaused(creatorId, true);
+        broadcaster.paused(creatorId, true);
     }
 
     public void resume(UUID creatorId) {
         stateStore.setPaused(creatorId, false);
+        broadcaster.paused(creatorId, false);
         dispatcher.dispatch(creatorId);
     }
 
     /** Lewati event yang sedang PLAYING (atau PENDING berikutnya) dan lanjut. */
     public void skip(UUID creatorId) {
-        repository.findFirstByCreatorIdAndStatusOrderByCreatedAtAsc(creatorId, OverlayEventStatus.PLAYING)
-                .or(() -> repository.findFirstByCreatorIdAndStatusOrderByCreatedAtAsc(creatorId, OverlayEventStatus.PENDING))
-                .ifPresent(event -> overlayWriter.markSkipped(event.getId()));
+        Optional<OverlayEvent> target = repository
+                .findFirstByCreatorIdAndStatusOrderByCreatedAtAsc(creatorId, OverlayEventStatus.PLAYING)
+                .or(() -> repository.findFirstByCreatorIdAndStatusOrderByCreatedAtAsc(creatorId, OverlayEventStatus.PENDING));
+        target.ifPresent(event -> overlayWriter.markSkipped(event.getId()));
         stateStore.clearCurrent(creatorId);
+        broadcaster.skip(creatorId, target.map(OverlayEvent::getId).orElse(null));
         dispatcher.dispatch(creatorId);
     }
 

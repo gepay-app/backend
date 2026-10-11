@@ -37,6 +37,20 @@ class OverlayRedisSubscriberTest {
     }
 
     @Test
+    void forwardsControlMessageToDisplayOnly() throws Exception {
+        UUID creatorId = UUID.randomUUID();
+        byte[] channel = ("donation:overlay:control:" + creatorId).getBytes(StandardCharsets.UTF_8);
+        byte[] body = "{\"type\":\"paused\"}".getBytes(StandardCharsets.UTF_8);
+        when(registry.displaySessions(creatorId)).thenReturn(Set.of(session));
+        when(session.isOpen()).thenReturn(true);
+
+        new OverlayRedisSubscriber(registry).onMessage(new DefaultMessage(channel, body), null);
+
+        verify(session).sendMessage(any(TextMessage.class));
+        verify(registry, never()).controlSessions(creatorId);
+    }
+
+    @Test
     void ignoresMessagesForUnparsableChannel() {
         byte[] channel = "donation:overlay:play:not-a-uuid".getBytes(StandardCharsets.UTF_8);
         byte[] body = "{}".getBytes(StandardCharsets.UTF_8);

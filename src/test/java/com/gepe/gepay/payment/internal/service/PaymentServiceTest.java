@@ -188,4 +188,60 @@ class PaymentServiceTest {
         assertThat(result.get(0).code()).isEqualTo("BANK_BRI");
         assertThat(result.get(0).direction()).isEqualTo(ChannelDirection.PAYOUT);
     }
+
+    @Test
+    void listPayinChannels_WithAmount_IncludesGatewayFeeAndLimits() {
+        Channel channel = Channel.create(
+                "VA_BCA", "BCA Virtual Account", ChannelType.VA, ChannelDirection.PAYIN);
+        when(channelRepository.findByDirectionAndIsActiveTrue(ChannelDirection.PAYIN))
+                .thenReturn(List.of(channel));
+        ChannelRoute route = ChannelRoute.create(
+                1L, channel.getId(), "bca_va", 10_000L, 0L, 100, 3, SettlementTarget.BANK);
+        when(channelRouteRepository.findActiveRoute(channel.getId())).thenReturn(Optional.of(route));
+        when(feeResolver.resolveGatewayFee(1L, channel.getId(), 50_000L))
+                .thenReturn(new FeeResolver.GatewayFeeSnapshot(4_400L, 54_400L));
+
+        var result = paymentService.listPayinChannels(50_000L);
+
+        assertThat(result).hasSize(1);
+        var item = result.get(0);
+        assertThat(item.code()).isEqualTo("VA_BCA");
+        assertThat(item.direction()).isEqualTo(ChannelDirection.PAYIN);
+        assertThat(item.minAmount()).isEqualTo(10_000L);
+        assertThat(item.maxAmount()).isZero();
+        assertThat(item.pgFeeAmount()).isEqualTo(4_400L);
+        assertThat(item.totalChargedAmount()).isEqualTo(54_400L);
+        assertThat(item.currency()).isEqualTo("IDR");
+    }
+
+    @Test
+    void listPayinChannels_WithoutAmount_LeavesFeeFieldsNull() {
+        Channel channel = Channel.create(
+                "VA_BCA", "BCA Virtual Account", ChannelType.VA, ChannelDirection.PAYIN);
+        when(channelRepository.findByDirectionAndIsActiveTrue(ChannelDirection.PAYIN))
+                .thenReturn(List.of(channel));
+        ChannelRoute route = ChannelRoute.create(
+                1L, channel.getId(), "bca_va", 10_000L, 0L, 100, 3, SettlementTarget.BANK);
+        when(channelRouteRepository.findActiveRoute(channel.getId())).thenReturn(Optional.of(route));
+
+        var result = paymentService.listPayinChannels(null);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).pgFeeAmount()).isNull();
+        assertThat(result.get(0).totalChargedAmount()).isNull();
+        verify(feeResolver, never()).resolveGatewayFee(any(), any(), any());
+    }
+
+    @Test
+    void listPayinChannels_SkipsChannelsWithoutActiveRoute() {
+        Channel channel = Channel.create(
+                "VA_BCA", "BCA Virtual Account", ChannelType.VA, ChannelDirection.PAYIN);
+        when(channelRepository.findByDirectionAndIsActiveTrue(ChannelDirection.PAYIN))
+                .thenReturn(List.of(channel));
+        when(channelRouteRepository.findActiveRoute(channel.getId())).thenReturn(Optional.empty());
+
+        var result = paymentService.listPayinChannels(50_000L);
+
+        assertThat(result).isEmpty();
+    }
 }

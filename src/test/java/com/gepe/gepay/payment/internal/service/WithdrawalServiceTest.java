@@ -12,17 +12,14 @@ import com.gepe.gepay.payment.api.dtos.PayoutDestinationCreateCommand;
 import com.gepe.gepay.payment.api.dtos.WithdrawalCreateCommand;
 import com.gepe.gepay.payment.api.enums.ChannelDirection;
 import com.gepe.gepay.payment.api.enums.ChannelType;
-import com.gepe.gepay.payment.api.enums.FeeType;
 import com.gepe.gepay.payment.api.enums.SettlementTarget;
 import com.gepe.gepay.payment.internal.entity.Channel;
 import com.gepe.gepay.payment.internal.entity.ChannelRoute;
-import com.gepe.gepay.payment.internal.entity.FeeConfig;
 import com.gepe.gepay.payment.internal.entity.PayoutDestination;
 import com.gepe.gepay.payment.internal.entity.Withdrawal;
 import com.gepe.gepay.payment.internal.exception.PaymentError;
 import com.gepe.gepay.payment.internal.repository.ChannelRepository;
 import com.gepe.gepay.payment.internal.repository.ChannelRouteRepository;
-import com.gepe.gepay.payment.internal.repository.FeeConfigRepository;
 import com.gepe.gepay.payment.internal.repository.PayoutDestinationRepository;
 import com.gepe.gepay.payment.internal.repository.WithdrawalRepository;
 import com.gepe.gepay.platform.exception.ServiceException;
@@ -33,7 +30,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -55,7 +51,7 @@ class WithdrawalServiceTest {
     @Mock
     private ChannelRouteRepository channelRouteRepository;
     @Mock
-    private FeeConfigRepository feeConfigRepository;
+    private FeeResolver feeResolver;
     @Mock
     private WithdrawalRepository withdrawalRepository;
     @Mock
@@ -73,7 +69,7 @@ class WithdrawalServiceTest {
                 payoutDestinationRepository,
                 channelRepository,
                 channelRouteRepository,
-                feeConfigRepository,
+                feeResolver,
                 withdrawalRepository,
                 ledgerApi
         );
@@ -93,9 +89,8 @@ class WithdrawalServiceTest {
         ChannelRoute route = ChannelRoute.create(2L, 10L, "bri", 10_000L, 50_000_000L, 100, 0, SettlementTarget.PROVIDER_BALANCE);
         when(channelRouteRepository.findActiveRoute(10L)).thenReturn(Optional.of(route));
 
-        FeeConfig feeConfig = FeeConfig.create(FeeType.PLATFORM_WITHDRAWAL, null, null, null, 3_000L, 0, 0, Instant.now(), null, null);
-        when(feeConfigRepository.findActiveConfig(eq(FeeType.PLATFORM_WITHDRAWAL), isNull(), isNull(), isNull(), any()))
-                .thenReturn(Optional.of(feeConfig));
+        when(feeResolver.resolveWithdrawalFee(userId, 90_000L))
+                .thenReturn(new FeeResolver.WithdrawalFee(3_000L, 0, 3_000L));
 
         AccountDto available = account(AccountCode.CREATOR_PAYABLE_AVAILABLE, 100_000L);
         when(ledgerApi.getOrCreateAccount(AccountCode.CREATOR_PAYABLE_AVAILABLE, userId.toString()))
@@ -142,9 +137,8 @@ class WithdrawalServiceTest {
         ChannelRoute route = ChannelRoute.create(2L, 10L, "bri", 10_000L, 50_000_000L, 100, 0, SettlementTarget.PROVIDER_BALANCE);
         when(channelRouteRepository.findActiveRoute(10L)).thenReturn(Optional.of(route));
 
-        FeeConfig feeConfig = FeeConfig.create(FeeType.PLATFORM_WITHDRAWAL, null, null, null, 3_000L, 0, 0, Instant.now(), null, null);
-        when(feeConfigRepository.findActiveConfig(eq(FeeType.PLATFORM_WITHDRAWAL), isNull(), isNull(), isNull(), any()))
-                .thenReturn(Optional.of(feeConfig));
+        when(feeResolver.resolveWithdrawalFee(userId, 90_000L))
+                .thenReturn(new FeeResolver.WithdrawalFee(3_000L, 0, 3_000L));
 
         when(ledgerApi.getOrCreateAccount(AccountCode.CREATOR_PAYABLE_AVAILABLE, userId.toString()))
                 .thenReturn(account(AccountCode.CREATOR_PAYABLE_AVAILABLE, 50_000L));
@@ -204,9 +198,8 @@ class WithdrawalServiceTest {
         ChannelRoute route = ChannelRoute.create(2L, 10L, "bri", 10_000L, 50_000_000L, 100, 0, SettlementTarget.PROVIDER_BALANCE);
         when(channelRouteRepository.findActiveRoute(10L)).thenReturn(Optional.of(route));
 
-        FeeConfig feeConfig = FeeConfig.create(FeeType.PLATFORM_WITHDRAWAL, null, null, null, 3_000L, 100, 0, Instant.now(), null, null);
-        when(feeConfigRepository.findActiveConfig(eq(FeeType.PLATFORM_WITHDRAWAL), isNull(), isNull(), isNull(), any()))
-                .thenReturn(Optional.of(feeConfig));
+        when(feeResolver.resolveWithdrawalFee(userId, 0L))
+                .thenReturn(new FeeResolver.WithdrawalFee(3_000L, 100, 0L));
 
         var config = withdrawalService.getWithdrawalConfig(destinationId);
 
@@ -215,6 +208,32 @@ class WithdrawalServiceTest {
         assertThat(config.fixedFee()).isEqualTo(3_000L);
         assertThat(config.feePercentageBps()).isEqualTo(100);
         assertThat(config.currency()).isEqualTo("IDR");
+    }
+
+    @Test
+    void listPayoutChannels_ReturnsRouteLimitsAndEffectiveFee() {
+        when(currentUser.userId()).thenReturn(userId);
+        Channel channel = Channel.create("PAYOUT_BCA", "BCA (Pencairan)",
+                ChannelType.PAYOUT_BANK, ChannelDirection.PAYOUT);
+        when(channelRepository.findByDirectionAndIsActiveTrue(ChannelDirection.PAYOUT))
+                .thenReturn(List.of(channel));
+        ChannelRoute route = ChannelRoute.create(
+                2L, channel.getId(), "bca", 10_000L, 0L, 100, 0, SettlementTarget.PROVIDER_BALANCE);
+        when(channelRouteRepository.findActiveRoute(channel.getId())).thenReturn(Optional.of(route));
+        when(feeResolver.resolveWithdrawalFee(userId, 0L))
+                .thenReturn(new FeeResolver.WithdrawalFee(1_500L, 50, 0L));
+
+        var result = withdrawalService.listPayoutChannels();
+
+        assertThat(result).hasSize(1);
+        var item = result.get(0);
+        assertThat(item.code()).isEqualTo("PAYOUT_BCA");
+        assertThat(item.direction()).isEqualTo(ChannelDirection.PAYOUT);
+        assertThat(item.minAmount()).isEqualTo(10_000L);
+        assertThat(item.maxAmount()).isZero();
+        assertThat(item.withdrawalFeeAmount()).isEqualTo(1_500L);
+        assertThat(item.feePercentageBps()).isEqualTo(50);
+        assertThat(item.currency()).isEqualTo("IDR");
     }
 
     @Test

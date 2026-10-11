@@ -123,3 +123,50 @@ Detail isi jurnal: [Ledger — Contoh](../ledger/examples.md).
 | `adjustments` | koreksi manual (maker-checker) |
 | `processed_events` | inbox idempotency webhook |
 | `reconciliation_runs` / `_items` | rekonsiliasi (fase lanjut) |
+
+---
+
+## 8. Katalog channel (PAYIN vs PAYOUT)
+
+Katalog channel dipisah per arah supaya fee yang ditampilkan tepat dan aman
+(tidak membocorkan fee platform/hak creator ke donor):
+
+| Method | Path | Auth | Isi |
+|---|---|---|---|
+| `GET` | `/api/v1/channels/payin?amount=` | publik | channel PAYIN + fee ditanggung pembayar |
+| `GET` | `/api/v1/channels/payout` | bearer | channel PAYOUT + tarif penarikan efektif user |
+| `GET` | `/api/v1/channels?direction=` | publik | **deprecated** — katalog mentah tanpa fee |
+
+- **PAYIN publik** hanya mengekspos `pgFeeAmount` (fee `GATEWAY_PROCESSING`) dan
+  `totalChargedAmount` (= `amount` + `pgFeeAmount`). Fee platform & hak creator
+  (`platformFeeAmount`, `platformVatAmount`, `netCreatorAmount`,
+  `expectedSettlementAmount`, config id) **tidak boleh** dikirim. `amount`
+  opsional; bila kosong, `pgFeeAmount`/`totalChargedAmount` = `null` sehingga
+  halaman menampilkan nominal tanpa rincian sampai jumlah diisi.
+- **PAYOUT** butuh login karena tarif `PLATFORM_WITHDRAWAL` efektif bergantung pada
+  `UserFeeOverride` user (mis. creator VIP). Field: `withdrawalFeeAmount`
+  (komponen fixed) + `feePercentageBps`. Konsisten dengan `WithdrawalConfigRes`.
+- Channel tanpa **route aktif** dilewati (tanpa route, min/max/fee tidak bisa
+  dihitung). `minAmount`/`maxAmount` dari route; `maxAmount` = 0 artinya tanpa batas.
+- Fee dihitung lewat **`FeeResolver`** yang sama dengan alur charge/penarikan —
+  tidak ada rumus fee duplikat.
+
+Contoh (PAYIN, `amount=50000`):
+
+```json
+{ "message": "...", "data": [ {
+  "id": 1, "code": "VA_BCA", "displayName": "BCA Virtual Account",
+  "type": "VA", "direction": "PAYIN", "minAmount": 10000, "maxAmount": 0,
+  "pgFeeAmount": 4400, "totalChargedAmount": 54400, "currency": "IDR"
+} ] }
+```
+
+Contoh (PAYOUT, creator dengan override VIP):
+
+```json
+{ "message": "...", "data": [ {
+  "id": 2, "code": "PAYOUT_BCA", "displayName": "BCA (Pencairan)",
+  "type": "PAYOUT_BANK", "direction": "PAYOUT", "minAmount": 10000, "maxAmount": 0,
+  "withdrawalFeeAmount": 1500, "feePercentageBps": 50, "currency": "IDR"
+} ] }
+```

@@ -2,6 +2,7 @@ package com.gepe.gepay.payment.internal.service;
 
 import com.gepe.gepay.payment.api.enums.FeeType;
 import com.gepe.gepay.payment.internal.entity.FeeConfig;
+import com.gepe.gepay.payment.internal.entity.UserFeeOverride;
 import com.gepe.gepay.payment.internal.repository.FeeConfigRepository;
 import com.gepe.gepay.payment.internal.repository.UserFeeOverrideRepository;
 import com.gepe.gepay.payment.internal.exception.PaymentError;
@@ -21,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -87,5 +89,63 @@ class FeeResolverTest {
         assertThatThrownBy(() -> feeResolver.resolveAndCalculate("UNKNOWN", userId, 1L, 1L, 100_000L))
                 .isInstanceOf(ServiceException.class)
                 .hasMessage(PaymentError.INTERNAL_ERROR.getMessageKey());
+    }
+
+    @Test
+    void resolveGatewayFee_ExcludesPlatformFee() {
+        FeeConfig gatewayConfig = FeeConfig.create(
+                FeeType.GATEWAY_PROCESSING, null, 1L, 2L, 4000L, 0, 1100, Instant.now(), "note", "admin");
+        when(feeConfigRepository.findActiveConfig(eq(FeeType.GATEWAY_PROCESSING), any(), eq(1L), eq(2L), any()))
+                .thenReturn(Optional.of(gatewayConfig));
+
+        FeeResolver.GatewayFeeSnapshot snapshot = feeResolver.resolveGatewayFee(1L, 2L, 100_000L);
+
+        assertThat(snapshot.pgFeeAmount()).isEqualTo(4_440L);
+        assertThat(snapshot.totalChargedAmount()).isEqualTo(104_440L);
+    }
+
+    @Test
+    void resolveGatewayFee_MissingConfig_ThrowsServiceException() {
+        when(feeConfigRepository.findActiveConfig(eq(FeeType.GATEWAY_PROCESSING), any(), eq(1L), eq(2L), any()))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> feeResolver.resolveGatewayFee(1L, 2L, 100_000L))
+                .isInstanceOf(ServiceException.class)
+                .hasMessage(PaymentError.INTERNAL_ERROR.getMessageKey());
+    }
+
+    @Test
+    void resolveWithdrawalFee_UsesUserOverrideWhenPresent() {
+        UserFeeOverride override = UserFeeOverride.create(
+                userId, FeeType.PLATFORM_WITHDRAWAL, null, 1_000L, 100, 0,
+                Instant.now(), "VIP", UUID.randomUUID());
+        when(userFeeOverrideRepository.findActiveOverride(
+                eq(userId), eq(FeeType.PLATFORM_WITHDRAWAL), isNull(), any()))
+                .thenReturn(Optional.of(override));
+
+        FeeResolver.WithdrawalFee fee = feeResolver.resolveWithdrawalFee(userId, 100_000L);
+
+        // 1000 fixed + 1% of 100_000 = 2000
+        assertThat(fee.fixedFee()).isEqualTo(1_000L);
+        assertThat(fee.percentageBps()).isEqualTo(100);
+        assertThat(fee.feeAmount()).isEqualTo(2_000L);
+    }
+
+    @Test
+    void resolveWithdrawalFee_FallsBackToBaseConfig() {
+        FeeConfig base = FeeConfig.create(
+                FeeType.PLATFORM_WITHDRAWAL, null, null, null, 3_000L, 0, 0, Instant.now(), null, null);
+        when(userFeeOverrideRepository.findActiveOverride(
+                eq(userId), eq(FeeType.PLATFORM_WITHDRAWAL), isNull(), any()))
+                .thenReturn(Optional.empty());
+        when(feeConfigRepository.findActiveConfig(
+                eq(FeeType.PLATFORM_WITHDRAWAL), isNull(), isNull(), isNull(), any()))
+                .thenReturn(Optional.of(base));
+
+        FeeResolver.WithdrawalFee fee = feeResolver.resolveWithdrawalFee(userId, 90_000L);
+
+        assertThat(fee.fixedFee()).isEqualTo(3_000L);
+        assertThat(fee.percentageBps()).isZero();
+        assertThat(fee.feeAmount()).isEqualTo(3_000L);
     }
 }

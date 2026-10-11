@@ -12,7 +12,8 @@ import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 
 /**
  * Redis pub/sub donation: fan-out perintah play overlay
- * ({@code donation:overlay:play:*}), rotasi key ({@code donation:overlay:key-rotated:*})
+ * ({@code donation:overlay:play:*}), rotasi key ({@code donation:overlay:key-rotated:*},
+ * sinyal kontrol playback {@code donation:overlay:control:*}: skip/paused/resumed)
  * dan sinyal PAID ({@code donation:payment:*}) ke sesi WebSocket/SSE lokal tiap node.
  */
 @Configuration(proxyBeanMethods = false)
@@ -30,6 +31,8 @@ public class DonationRedisConfig {
                 new PatternTopic(RedisOverlayBroadcaster.PLAY_CHANNEL_PREFIX + "*"));
         container.addMessageListener(overlaySubscriber,
                 new PatternTopic(RedisOverlayBroadcaster.KEY_ROTATED_CHANNEL_PREFIX + "*"));
+        container.addMessageListener(overlaySubscriber,
+                new PatternTopic(RedisOverlayBroadcaster.CONTROL_CHANNEL_PREFIX + "*"));
         container.addMessageListener(statusSubscriber,
                 new PatternTopic(DonationStatusStreamService.PAID_CHANNEL_PREFIX + "*"));
         return container;

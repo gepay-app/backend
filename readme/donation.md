@@ -93,12 +93,24 @@ Display putar sesuai durationSeconds → kirim {"type":"ack","id":...} → PLAYE
 Envelope: `{ "v": 1, "type": "…", "id": "…", "data": { } }`.
 
 - **Display** `/ws/overlay/display?key={overlay_key}` — **tanpa login**; key di-resolve ke
-  `creatorId` saat handshake. Server→client: `hello`, `play`. Client→server: `ack`, `heartbeat`.
+  `creatorId` saat handshake. Server→client: `hello`, `play`, `skip`, `paused`, `resumed`.
+  Client→server: `ack`, `heartbeat`.
 - **Control** `/ws/overlay/control?token={firebaseIdToken}` — login. Server→client: `state`.
   Client→server: `pause`, `resume`, `skip`, `retry`, `retryAll`, `purge`.
 
 Payload `play` (`data`): `overlayEventId, donationId, type, donorName, isAnonymous, amount,
 durationSeconds, message, videoId, canonicalUrl`.
+
+**Sinyal kontrol ke display** (dipublikasikan lewat Redis `donation:overlay:control:{creatorId}`,
+diteruskan hanya ke sesi display):
+
+- `{"v":1,"type":"skip","id":"<overlayEventId>","data":{"overlayEventId":"<overlayEventId>"}}`
+  — hentikan media yang sedang diputar; `id`/`overlayEventId` `null` bila tidak ada current.
+- `{"v":1,"type":"paused","data":{"paused":true}}` — controller menekan pause.
+- `{"v":1,"type":"resumed","data":{"paused":false}}` — controller menekan resume.
+
+Display tetap **pasif**: hanya bereaksi ke pesan yang diterima, tidak ada command baru selain
+`ack`/`heartbeat`. State tetap diubah service (`OverlayQueueService`); handler hanya meneruskan.
 
 ---
 
@@ -106,7 +118,7 @@ durationSeconds, message, videoId, canonicalUrl`.
 
 - **Antrean durable di DB** (`overlay_events`) — display offline → item tetap `PENDING`.
 - **Redis** untuk state transient (presence/paused/current) + fan-out (`donation:overlay:play:*`,
-  `donation:payment:*`).
+  `donation:overlay:control:*` untuk sinyal `skip`/`paused`/`resumed`, `donation:payment:*`).
 - **Klaim atomik** `FOR UPDATE SKIP LOCKED` per `creator_id` → aman lintas instance.
 - **Watchdog** Quartz (`OverlayAckWatchdogJob`) mengembalikan event `PLAYING` yang lewat timeout ack.
 - **At-least-once**: `PaymentPaidEvent` listener idempotent (`UNIQUE(donation_id)` + cek status).
